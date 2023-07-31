@@ -1,0 +1,39 @@
+[tool.poetry]
+name = "model-based-rl-mcpf"
+version = "0.1.0"
+description = ""
+authors = ["Maria Cristina Pena Fuentes <mariacristina.pena@tu-dortmund.de>", "Dominik Bleidorn <dominikr.bleidorn@tu-dortmund.de>"]
+readme = "README.md"
+packages = [{include = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.9, <3.12"
+gym = "0.21.0"
+hydra-core="1.3.2"
+matplotlib = "3.5.3"
+numpy = "1.23.5"
+openpyxl = "3.1.2"
+optuna = "3.2.0"
+pandas = "2.0.0"
+ptitprince = "0.2.6"
+sb3-contrib = "1.8.0"
+scipy = "1.10.1"
+simpy = "4.0.1"
+stable-baselines3 = "1.8.0"
+seaborn = "0.11.0"
+sympy = "1.11.1"
+tensorboard = "2.12.3"
+tensorflow-io-gcs-filesystem = "0.31.0"
+tensorflow-intel = "2.12.0"
+tensorflow = "2.12.0"
+tensorflow-probability="0.20.1"
+torch = "2.0.0"
+tqdm = "4.65.0"
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.3.0"
+sphinx = "^7.0.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

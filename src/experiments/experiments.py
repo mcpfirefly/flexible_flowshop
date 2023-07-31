@@ -1,0 +1,645 @@
+
+from main import seed,masking,solution_hints,reward,obs_size,action_space,buffer_usage, N_TIMESTEPS,experiment_date,experiment_time
+from experiments.rl_algorithms.maskable_ppo import MaskablePPO
+from flexible_flow_shop.resources.functions.main_wrapper import MakeEnvironment
+from experiments.rl_algorithms.ppo import PPO
+from flexible_flow_shop.resources.functions.custom_wrappers import CustomMaskableEvalCallback as MaskableEvalCallback
+from flexible_flow_shop.resources.functions.custom_wrappers import CustomEvalCallback as EvalCallback
+
+from main import recreate_solution, generate_heuristic_schedules, test,experiment_folder
+from flexible_flow_shop.resources.functions.global_variables import ORDERS,CHANGEOVER
+from flexible_flow_shop.resources.functions.scheduling_functions import get_action_heuristics,GenerateHeuristicResultsFiles
+from flexible_flow_shop.environment import flexible_flow_shop
+from custom_plotters.raincloud_plotter.raincloud_plotter import raincloud_plotter
+
+import pandas as pd
+import numpy as np
+
+import optuna, time, gym, torch, datetime
+from optuna.samplers import TPESampler
+from optuna.pruners import MedianPruner
+import torch.nn as nn
+from typing import Dict, Any, Union, Callable
+
+
+##### GLOBAL VARIABLES FOR EXPERIMENTS
+
+log_path = "outputs/{}/{}/Training/Logs".format(experiment_folder, test)
+best_model_save_path = "outputs/{}/{}/Training/Saved_Models".format(experiment_folder, test)
+
+env = flexible_flow_shop()
+train_env = MakeEnvironment(seed=seed, env=env, reward=reward, masking=masking, norm_obs=True, norm_rew=True,
+                            action_mode=action_space, obs_size=obs_size, buffer_usage=buffer_usage,
+                            log_path=(log_path + "_training"))
+eval_env = MakeEnvironment(seed=seed, env=env, reward=reward, masking=masking, norm_obs=True, norm_rew=True,
+                           action_mode=action_space, obs_size=obs_size, buffer_usage=buffer_usage,
+                           log_path=(log_path + "_evaluation"))
+
+
+##### A CLASS FOR EACH DIFFERENT TEST
+class PPO_Optuna:
+    def __init__(self):
+        self.DEVICE = torch.device("cpu")
+        self.N_TRIALS = 5
+        self.N_STARTUP_TRIALS = 1
+        self.N_TIMESTEPS = N_TIMESTEPS  # for every trial
+        self.N_EVALUATIONS = self.N_TIMESTEPS / 1000  # evaluations per trial
+        self.EVAL_FREQ = int(self.N_TIMESTEPS / self.N_EVALUATIONS)
+        self.N_EVAL_EPISODES = 10
+        self.optuna_log_path = "outputs/{}/{}/Training/Optuna/Logs".format(experiment_folder, test)
+
+    def linear_schedule(initial_value: Union[float, str]) -> Callable[[float], float]:
+        if isinstance(initial_value, str):
+            initial_value = float(initial_value)
+
+        def func(progress_remaining: float) -> float:
+            return progress_remaining * initial_value
+
+        return func
+
+    def sample_ppo_hyperparams(self, trial: optuna.Trial) -> Dict[str, Any]:
+        gamma = 1.0 - trial.suggest_float("gamma", 0.0001, 0.1, log=True)
+        max_grad_norm = trial.suggest_float("max_grad_norm", 0.3, 5.0, log=True)
+        gae_lambda = 1.0 - trial.suggest_float("gae_lambda", 0.001, 0.2, log=True)
+        n_steps = 2 ** trial.suggest_int("exponent_n_steps", 3, 10)
+        learning_rate = trial.suggest_float("lr", 1e-5, 0.003, log=True)
+        ent_coef = trial.suggest_float("ent_coef", 0.00000001, 0.1, log=True)
+        lr_schedule = trial.suggest_categorical("lr_schedule", ["constant", "linear"])
+        ortho_init = trial.suggest_categorical("ortho_init", [False, True])
+        net_arch = trial.suggest_categorical("net_arch", ["a", "b", "c", "d"])
+        activation_fn = trial.suggest_categorical("activation_fn", ["tanh", "relu"])
+        activation_fn = {"tanh": nn.Tanh, "relu": nn.ReLU}[activation_fn]
+
+        trial.set_user_attr("gamma_", gamma)
+        trial.set_user_attr("gae_lambda_", gae_lambda)
+        trial.set_user_attr("n_steps", n_steps)
+
+        if net_arch == "a":
+            net_arch = [64, 64, 64, 64, 64, 64]
+        if net_arch == "b":
+            net_arch = [128, 64, 128, 64]
+        if net_arch == "c":
+            net_arch = [128, 128, 128, 128, 128, 128]
+        if net_arch == "d":
+            net_arch = [256, 128, 256]
+        if net_arch == "e":
+            net_arch = [256, 256]
+
+        if lr_schedule == "linear":
+            learning_rate = self.linear_schedule(learning_rate)
+
+        return {
+            "n_steps": n_steps,
+            "gamma": gamma,
+            "gae_lambda": gae_lambda,
+            "learning_rate": learning_rate,
+            "ent_coef": ent_coef,
+            "max_grad_norm": max_grad_norm,
+            "policy_kwargs": {
+                "net_arch": net_arch,
+                "activation_fn": activation_fn,
+                "ortho_init": ortho_init,
+            },
+        }
+
+    class MaskableTrialEvalCallback(MaskableEvalCallback):
+        """Callback used for evaluating and reporting a trial."""
+
+        def __init__(
+                self,
+                eval_env: gym.Env,  #:param eval_env: The environment used for initialization
+                trial: optuna.Trial,
+                n_eval_episodes: int,
+                eval_freq: int,
+                deterministic: bool = True,
+                verbose: int = 1,
+                best_model_save_path_in: str = "input path - best_model_save_path",
+                # GHKVD 21062022: added to store best model
+                log_path_in: str = "input path - log_path ",  # GHKVD 21062022: added to store evaluation results
+        ):
+            super().__init__(
+                eval_env=eval_env,
+                n_eval_episodes=n_eval_episodes,
+                eval_freq=eval_freq,
+                deterministic=deterministic,
+                verbose=verbose,
+                best_model_save_path=best_model_save_path_in,
+                log_path=log_path_in,
+            )
+            self.trial = trial
+            eval_env = eval_env
+            self.eval_idx = 0
+            self.is_pruned = False
+            print("TrialEvalCallback_init")
+            # logging.debug("TrialEvalCallback__init")
+
+        def _on_step(self) -> bool:
+            # logging.debug("TrialEvalCallback___on_step0")
+
+            if self.eval_freq > 0 and self.n_calls % self.eval_freq == 0:
+                # logging.debug("TrialEvalCallback___on_step1")
+                # new:
+                # logging.debug("TrialEvalCallback___env reset")
+                print("_on_step if clause start")
+                train_env.reset()
+                time.sleep(3)
+                print("train_env.reset() in _on_step() function")
+                super()._on_step()
+                self.eval_idx += 1
+                self.trial.report(self.last_mean_reward, self.eval_idx)
+                print("self.last_mean_reward: ", self.last_mean_reward)
+                # Prune trial if need
+                if self.trial.should_prune():
+                    # logging.debug("TrialEvalCallback___on_step2")
+                    self.is_pruned = True
+                    print("Trial pruned!")
+                    return False
+            # logging.debug("TrialEvalCallback___on_step3")
+            # print("Trial not pruned!")
+            return True
+
+    class TrialEvalCallback(EvalCallback):
+        """Callback used for evaluating and reporting a trial."""
+
+        def __init__(
+                self,
+                eval_env: gym.Env,  #:param eval_env: The environment used for initialization
+                trial: optuna.Trial,
+                n_eval_episodes: int,
+                eval_freq: int,
+                deterministic: bool = True,
+                verbose: int = 1,
+                best_model_save_path_in: str = "input path - best_model_save_path",
+                # GHKVD 21062022: added to store best model
+                log_path_in: str = "input path - log_path ",  # GHKVD 21062022: added to store evaluation results
+        ):
+            super().__init__(
+                eval_env=eval_env,
+                n_eval_episodes=n_eval_episodes,
+                eval_freq=eval_freq,
+                deterministic=deterministic,
+                verbose=verbose,
+                best_model_save_path=best_model_save_path_in,
+                log_path=log_path_in,
+            )
+            self.trial = trial
+            eval_env = eval_env
+            self.eval_idx = 0
+            self.is_pruned = False
+            print("TrialEvalCallback_init")
+            # logging.debug("TrialEvalCallback__init")
+
+        def _on_step(self) -> bool:
+            # logging.debug("TrialEvalCallback___on_step0")
+
+            if self.eval_freq > 0 and self.n_calls % self.eval_freq == 0:
+                # logging.debug("TrialEvalCallback___on_step1")
+                # new:
+                # logging.debug("TrialEvalCallback___env reset")
+                print("_on_step if clause start")
+
+                train_env.reset()
+                time.sleep(3)
+                print("train_env.reset() in _on_step() function")
+                super()._on_step()
+                self.eval_idx += 1
+                self.trial.report(self.last_mean_reward, self.eval_idx)
+                print("self.last_mean_reward: ", self.last_mean_reward)
+                # Prune trial if need
+                if self.trial.should_prune():
+                    # logging.debug("TrialEvalCallback___on_step2")
+                    self.is_pruned = True
+                    print("Trial pruned!")
+                    return False
+            # logging.debug("TrialEvalCallback___on_step3")
+            # print("Trial not pruned!")
+            return True
+    def objective(self,trial: optuna.Trial) -> float:
+
+        DEFAULT_HYPERPARAMS = {
+            "policy": "MlpPolicy",
+            "env": train_env,
+            "verbose": 2,
+            "seed": seed,
+            "tensorboard_log": self.optuna_log_path
+        }
+        kwargs = DEFAULT_HYPERPARAMS.copy()
+        # Sample hyperparameters
+        kwargs.update(self.sample_ppo_hyperparams(trial))
+        # Create the RL model
+        if masking and action_space == "discrete":
+            model = MaskablePPO(**kwargs)
+            eval_callback = self.MaskableTrialEvalCallback(
+                eval_env, trial, n_eval_episodes=self.N_EVAL_EPISODES, eval_freq=self.EVAL_FREQ, deterministic=False,
+                best_model_save_path_in=best_model_save_path, log_path_in=self.optuna_log_path,
+            )
+        else:
+            model = PPO(**kwargs)
+            eval_callback = self.TrialEvalCallback(
+                eval_env, trial, n_eval_episodes=self.N_EVAL_EPISODES, eval_freq=self.EVAL_FREQ, deterministic=False,
+                best_model_save_path_in=best_model_save_path, log_path_in=self.optuna_log_path,
+            )
+        # new trial variables:
+        print("new trial, new variables")
+        print("Model created, Callback created")
+        nan_encountered = False
+        try:
+            iteration_no = 1  # initial iteration number of saving/ loading runs
+            save_after_n_steps = self.N_TIMESTEPS
+            total_iterations = int(self.N_TIMESTEPS / save_after_n_steps)  # total number of iterations to be saved/ loaded
+
+            # check if total_iterations is zero, set to 1 if
+            if total_iterations == 0:
+                total_iterations = 1
+
+            steps_so_far = 0  # steps so far in trained in this test
+            steps_per_iteration = self.N_TIMESTEPS / total_iterations  # steps to be trained per iteration of saving and loading
+
+            model.learn(steps_so_far + steps_per_iteration, callback=eval_callback, reset_num_timesteps=False)
+            model.save(best_model_save_path + "model_save")
+            model.save(best_model_save_path + "model_save_" + str(steps_so_far))
+
+            steps_so_far = steps_so_far + steps_per_iteration
+            iteration_no = iteration_no + 1
+
+            while iteration_no <= total_iterations:
+                print("start iteration_no: " + str(iteration_no))
+                print("steps_so_far: " + str(steps_so_far))
+                print("steps_per_iteration: " + str(steps_per_iteration))
+
+                del model
+                if action_space == "discrete" and masking:
+                    model = MaskablePPO.load(best_model_save_path + "model_save")
+                else:
+                    model = PPO.load(best_model_save_path + "model_save")
+                print("loaded model")
+                model.set_env(train_env)
+                print("set env model")
+
+                model.env.reset()
+                print("reseted")
+                print("start learning")
+                model.learn(steps_per_iteration, callback=eval_callback, reset_num_timesteps=False)
+                model.save(best_model_save_path + "model_save")
+                model.save(best_model_save_path + "model_save_" + str(steps_so_far))
+                steps_so_far = steps_so_far + steps_per_iteration
+                iteration_no = iteration_no + 1
+
+                print("Model learning finished")
+
+        except AssertionError as e:
+            # Sometimes, random hyperparams can generate NaN
+            print(e)
+            nan_encountered = True
+        finally:
+            # Free memory
+            print("Close Model and Env!")
+
+            model.env.close()
+            eval_env.close()
+
+        if nan_encountered:
+            # logging.debug("objective___nan")
+            print("nan encountered")
+            return float("nan")
+
+            # logging.debug("objective___no nan")
+        if eval_callback.is_pruned:
+            # logging.debug("objective___is_pruned")
+            raise optuna.exceptions.TrialPruned()
+
+            # logging.debug("objective___last_mean_reward")
+        ret_val = eval_callback.last_mean_reward
+        # logging.debug("objective___last_mean_reward = " + str(ret_val))
+        print("objective function return value: ", ret_val)
+        return ret_val
+        {}
+
+    def PPO_Optuna_run(self):
+        torch.set_num_threads(1)
+
+        sampler = TPESampler(n_startup_trials=self.N_STARTUP_TRIALS, seed=seed)
+        pruner = MedianPruner(n_startup_trials=self.N_STARTUP_TRIALS, n_warmup_steps=self.N_TIMESTEPS // 3)
+
+        study = optuna.create_study(storage="sqlite:///outputs/{}/Optuna_Trial.db".format(experiment_folder),
+                                    study_name="Optuna_Trial", sampler=sampler, pruner=pruner, direction="maximize")
+
+        print("created optuna study")
+        print("start study optimize")
+        study.optimize(self.objective, n_trials=self.N_TRIALS)
+        print("study optimize finished")
+
+        print("Number of finished trials: ", len(study.trials))
+
+        print("Best trial:")
+        trial = study.best_trial
+
+        print("  Value: ", trial.value)
+
+        with open('best_trial.txt', 'w') as f:
+            print("Best trial:", file=f)
+            print("  Value: ", trial.value, file=f)
+            print("  Params: ", file=f)
+            for key, value in trial.params.items():
+                print("    {}: {}".format(key, value), file=f)
+
+        print("  Params: ")
+        for key, value in trial.params.items():
+            print("    {}: {}".format(key, value))
+
+        print("  User attrs:")
+        for key, value in trial.user_attrs.items():
+            print("    {}: {}".format(key, value))
+class PPO_Manual_Parameters:
+    def __init__(self):
+        self.experiment_date = experiment_date
+        self.N_TIMESTEPS = N_TIMESTEPS
+        self.N_EVALUATIONS = self.N_TIMESTEPS / 1000  # evaluations
+        self.EVAL_FREQ = int(self.N_TIMESTEPS / self.N_EVALUATIONS)
+        self.N_EVAL_EPISODES = 10
+
+    def linear_schedule(initial_value: Union[float, str]) -> Callable[[float], float]:
+        if isinstance(initial_value, str):
+            initial_value = float(initial_value)
+
+        def func(progress_remaining: float) -> float:
+            return progress_remaining * initial_value
+
+        return func
+
+    def ppo_hyperparams_discrete_probs(self) -> Dict[str, Any]:
+        gamma = 0.9574554332294194
+        max_grad_norm = 0.3178814931041116
+        gae_lambda = 0.8170314419786968
+        n_steps = 2 ** 6
+        learning_rate = 0.0021724161836662818
+        ent_coef = 0.0321016635395011
+        lr_schedule = "linear"
+        ortho_init = True
+        net_arch = [128, 64, 128, 64]
+        activation_fn = nn.ReLU
+
+        if lr_schedule == "linear":
+            learning_rate = self.linear_schedule(learning_rate)
+
+        return {
+            "n_steps": n_steps,
+            "gamma": gamma,
+            "gae_lambda": gae_lambda,
+            "learning_rate": learning_rate,
+            "ent_coef": ent_coef,
+            "max_grad_norm": max_grad_norm,
+            "policy_kwargs": {
+                "net_arch": net_arch,
+                "activation_fn": activation_fn,
+                "ortho_init": ortho_init,
+            },
+        }
+
+    def ppo_hyperparams_discrete(self) -> Dict[str, Any]:
+        gamma = 0.9966873310693646
+        max_grad_norm = 0.35270779889789233
+        gae_lambda = 0.9721977226163961
+        n_steps = 2 ** 4
+        learning_rate = 2.1120967608851453e-05
+        ent_coef = 0.003309847983555168
+        lr_schedule = "linear"
+        ortho_init = False
+        net_arch = [128, 128, 128, 128, 128, 128]
+        activation_fn = nn.Tanh
+
+        if lr_schedule == "linear":
+            learning_rate = self.linear_schedule(learning_rate)
+
+        return {
+            "n_steps": n_steps,
+            "gamma": gamma,
+            "gae_lambda": gae_lambda,
+            "learning_rate": learning_rate,
+            "ent_coef": ent_coef,
+            "max_grad_norm": max_grad_norm,
+            "policy_kwargs": {
+                "net_arch": net_arch,
+                "activation_fn": activation_fn,
+                "ortho_init": ortho_init,
+            },
+        }
+
+    def ppo_hyperparams_continuous(self) -> Dict[str, Any]:
+        gamma = 0.9822742318642296
+        max_grad_norm = 1.3746408813884265
+        gae_lambda = 0.9885707604345161
+        n_steps = 2 ** 8
+        learning_rate = 0.0006070259771275158
+        ent_coef = 4.93550898574578e-06
+        lr_schedule = "linear"
+        ortho_init = False
+        net_arch = [128, 64, 128, 64]
+        activation_fn = nn.Tanh
+
+        if lr_schedule == "linear":
+            learning_rate = self.linear_schedule(learning_rate)
+
+        return {
+            "n_steps": n_steps,
+            "gamma": gamma,
+            "gae_lambda": gae_lambda,
+            "learning_rate": learning_rate,
+            "ent_coef": ent_coef,
+            "max_grad_norm": max_grad_norm,
+            "policy_kwargs": {
+                "net_arch": net_arch,
+                "activation_fn": activation_fn,
+                "ortho_init": ortho_init,
+            },
+        }
+
+    def PPO_Manual_Parameters_run(self):
+
+        policy_kwargs = {
+            "net_arch": [64, 64, 64, 64]
+        }
+
+        DEFAULT_HYPERPARAMS = {
+            "policy": "MlpPolicy",
+            "env": train_env,
+            "verbose": 2,
+            "seed": seed,
+            "tensorboard_log": log_path,
+            "policy_kwargs": policy_kwargs,
+        }
+        kwargs = DEFAULT_HYPERPARAMS.copy()
+        if action_space == "discrete_probs" and solution_hints == "kopanos":
+            kwargs.update(self.ppo_hyperparams_discrete_probs())
+        elif action_space == "continuous":
+            kwargs.update(self.ppo_hyperparams_continuous())
+        elif action_space == "discrete":
+            kwargs.update(self.ppo_hyperparams_discrete())
+
+        if masking and action_space == "discrete":
+            model = MaskablePPO(**kwargs)
+            eval_callback = MaskableEvalCallback(eval_env,
+                                                 n_eval_episodes=self.N_EVAL_EPISODES,
+                                                 eval_freq=self.EVAL_FREQ,
+                                                 best_model_save_path=best_model_save_path,
+                                                 verbose=2)
+        else:
+            model = PPO(**kwargs)
+            eval_callback = EvalCallback(eval_env,
+                                         n_eval_episodes=self.N_EVAL_EPISODES,
+                                         eval_freq=self.EVAL_FREQ,
+                                         best_model_save_path=best_model_save_path,
+                                         verbose=2,
+                                         deterministic=False)
+
+        obs = model.env.reset()
+        print("learning started")
+        model.learn(total_timesteps=self.N_TIMESTEPS, reset_num_timesteps=False, callback=eval_callback)
+        print("learning finished")
+class PPO_Test_Trained:
+    def __init__(self):
+        self.use_trained_with_solution = False
+        self.N_TEST_EPISODES = N_TIMESTEPS
+
+    def PPO_Test_Trained_Run(self):
+
+        if self.use_trained_with_solution:
+            model_to_load = "TBD"
+        test_env = MakeEnvironment(seed=seed, env=env, reward=reward, masking=masking, norm_obs=True, norm_rew=True,
+                                   action_mode=action_space, obs_size=obs_size, buffer_usage=buffer_usage,
+                                   log_path=(log_path + "_testing"))
+
+        if action_space == "discrete" and masking:
+            model_to_load = None
+            model = MaskablePPO.load(model_to_load)
+        else:
+            model_to_load = None
+            model = PPO.load(model_to_load)
+
+        print("loaded model")
+        model.set_env(test_env)
+        print("set env model")
+
+        model.env.reset()
+        print("reseted")
+        print("start learning")
+
+        print("set env model")
+
+        for episode in range(self.N_TEST_EPISODES):
+            print("Environment is reset")
+            obs = model.env.reset()
+            done = False
+            score = 0
+
+            while not done:
+                if masking and action_space == "discrete":
+                    action, _ = model.predict(obs, action_masks=env.valid_action_mask(), deterministic=True)
+                else:
+                    action, _ = model.predict(obs, deterministic=True)
+
+                obs, rewards, done, info = model.env.step(action)
+            print("Episode terminated!")
+class PPO_Simple_Run:
+    def __init__(self):
+        self.env = flexible_flow_shop()
+        self.N_TEST_EPISODES = N_TIMESTEPS
+        self.terminated_makespan = {key: [] for key in range(self.N_TEST_EPISODES)}
+        self.terminated_occ = {key: [] for key in range(self.N_TEST_EPISODES)}
+        self.terminated_wl = {key: [] for key in range(self.N_TEST_EPISODES)}
+
+    def PPO_Simple_Run_run(self):
+
+        for episode in range(self.N_TEST_EPISODES):
+            obs = self.env.reset()
+            sim_init = datetime.datetime.now()
+            done = False
+            counter = np.random.randint(2)
+            while not done:
+                if self.env.legal_operations.any():  # IF ANY LEGAL OPERATION EXISTS
+                    current_legal_operations = np.where(self.env.legal_operations)[0]
+
+                    # ACTION SELECTION DEPENDING ON THE EXPERIMENT SETTING
+                    if recreate_solution != None:
+                        action = current_legal_operations[0]
+                    elif generate_heuristic_schedules != None:
+                        action, counter = get_action_heuristics(self.env, current_legal_operations, counter,
+                                                                 generate_heuristic_schedules, CHANGEOVER)
+                    else:
+                        action = np.random.choice(current_legal_operations)
+
+                    # SEND ACTION
+                    obs, reward, done, info = self.env.step(action)
+
+                else:  # SEND NOOP ACTION
+                    obs, reward, done, info = self.env.step(len(ORDERS))
+
+            array_makespans = list(self.terminated_makespan.values())
+            array_occ = list(self.terminated_occ.values())
+            array_wl = list(self.terminated_wl.values())
+
+            flatten_list_makespans = [i for sublist in array_makespans for i in sublist]
+            flatten_list_occ = [i for sublist in array_occ for i in sublist]
+            flatten_list_wl = np.float64([i for sublist in array_wl for i in sublist])
+
+            if generate_heuristic_schedules != None:
+                if flatten_list_makespans == []:  # ARRAY VALUE IN FIRST SIMULATION
+                    self.env.render()
+
+                else:
+                    if generate_heuristic_schedules == "FIFO" or generate_heuristic_schedules == "SPT":
+                        env_variable = self.env.sim_duration
+                        env_list_optimization_variable = flatten_list_makespans
+
+                    elif generate_heuristic_schedules == "EDD":
+                        env_variable = self.env.weighted_total_lateness
+                        env_list_optimization_variable = flatten_list_wl
+
+                    elif generate_heuristic_schedules == "SCT":
+                        env_variable = self.env.oc_costs
+                        env_list_optimization_variable = flatten_list_occ
+
+                    mean = np.mean(env_list_optimization_variable)
+                    std = np.std(env_list_optimization_variable)
+                    upper_condition = mean + 0.1 * std
+                    lower_condition = mean - 0.1 * std
+
+                    if (env_variable <= upper_condition and env_variable >= lower_condition) or env_variable < np.min(
+                            env_list_optimization_variable):  # IF ANY SIMULATION IS BETTER THAN PAST ONES, RENDER
+                        self.env.render()
+                        print("PLOT: YES")
+                    else:
+                        print("PLOT: NO")
+                self.terminated_makespan[episode].append(self.env.sim_duration)
+                self.terminated_occ[episode].append(self.env.oc_costs)
+                self.terminated_wl[episode].append(self.env.weighted_total_lateness)
+
+            else:
+                self.env.render()
+
+            sim_end = datetime.datetime.now()
+            print("#############################")
+            print("Episode #{}".format(episode))
+            print("Computation time: {}".format(sim_end - sim_init))
+            print("#############################")
+
+        results_path = "outputs/{}/{}/render".format(experiment_folder, test)
+
+        if generate_heuristic_schedules != None and flatten_list_makespans != []:
+            info_heuristics = {
+                "POLICY": generate_heuristic_schedules,
+                "NUMBER OF EPISODES": self.N_TEST_EPISODES,
+                "AVERAGE": np.average(env_list_optimization_variable),
+                "MEAN": np.mean(env_list_optimization_variable),
+                "STD": np.std(env_list_optimization_variable),
+                "RSTD": 100 * np.std(env_list_optimization_variable) / np.mean(env_list_optimization_variable),
+                "MIN": np.min(env_list_optimization_variable),
+                "MAX": np.max(env_list_optimization_variable),
+            }
+
+            data = pd.DataFrame({"MAKESPAN": flatten_list_makespans,
+                                 "OCC": flatten_list_occ,
+                                 'WL': flatten_list_wl})
+
+            GenerateHeuristicResultsFiles(data, results_path, generate_heuristic_schedules, info_heuristics)
+            raincloud_plotter(data, results_path, self.N_TEST_EPISODES, generate_heuristic_schedules)
