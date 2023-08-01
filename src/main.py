@@ -1,13 +1,17 @@
-from flexible_flow_shop.resources.functions.global_variables import StudyCase
-from experiments.experiments import PPO_Optuna, PPO_Manual_Parameters, PPO_Simple_Run, PPO_Test_Trained
 import hydra
+from flexible_flow_shop.resources.functions.global_variables import StudyCase
+from experiments.experiments import (
+    PPO_Optuna,
+    PPO_Manual_Parameters,
+    PPO_Simple_Run,
+    PPO_Test_Trained,
+)
 
 
 @hydra.main(config_path="../conf", config_name="config", version_base=None)
-def main(cfg):
-
+def main(cfg: object) -> object:
     for key, value in cfg.params[0].items():
-        if value == 'None':
+        if value == "None":
             cfg.params[0][key] = None
     config = cfg.params[0]
     study = StudyCase(config)
@@ -21,4 +25,6 @@ def main(cfg):
     elif config.test == "ppo_test_trained":
         PPO_Test_Trained(study).PPO_Test_Trained_Run()
 
-main()
+
+if __name__ == "__main__":
+    main()

@@ -37,6 +37,7 @@ class JobTypes(Enum):
     CHANGEOVER = 2
     BLOCKING = 3
 
+
 class GanttJob:
     """
     A class representing a job in a Gantt chart.
@@ -61,12 +62,12 @@ class GanttJob:
     """
 
     def __init__(
-            self,
-            start_time: float,
-            duration: float,
-            resource: str,
-            name: str,
-            job_type: JobTypes = JobTypes.PROCESS,
+        self,
+        start_time: float,
+        duration: float,
+        resource: str,
+        name: str,
+        job_type: JobTypes = JobTypes.PROCESS,
     ) -> None:
         """
         Constructs all the necessary attributes for the GanttJob object.
@@ -117,14 +118,15 @@ class GanttPlotter:
     __init__(self, resources: Optional[List[str]] = None, jobs: Optional[List[GanttJob]] = None, xticks_step_size: Optional[int] = None, xticks_max_value: Optional[int] = None)
         Initializes the GanttPlotter instance with the given parameters.
     """
+
     VERSION = 0.3
 
     def __init__(
-            self,
-            resources: Optional[List[str]] = None,
-            jobs: Optional[List[GanttJob]] = None,
-            xticks_step_size: Optional[int] = None,
-            xticks_max_value: Optional[int] = None,
+        self,
+        resources: Optional[List[str]] = None,
+        jobs: Optional[List[GanttJob]] = None,
+        xticks_step_size: Optional[int] = None,
+        xticks_max_value: Optional[int] = None,
     ) -> None:
         """
         Constructs all the necessary attributes for the GanttPlotter object.
@@ -180,7 +182,7 @@ class GanttPlotter:
         self._jobs.append(job)
 
     def _find_xticks(
-            self, step_size: int, max_value: int
+        self, step_size: int, max_value: int
     ) -> Tuple[List[int], List[str]]:
         """
         Private method to find x-ticks and their corresponding labels for the Gantt chart.
@@ -296,7 +298,7 @@ class GanttPlotter:
         """
 
         num_colors = self._calc_num_colors_needed()
-        golden_ratio = (1 + 5 ** 0.5) / 2
+        golden_ratio = (1 + 5**0.5) / 2
 
         colors = [
             hsv_to_rgb(
@@ -334,13 +336,13 @@ class GanttPlotter:
             for jobname in self._get_unique_job_names():
                 element_color = self._get_color_for(jobname)
                 element_label = jobname
-                #new_element = Patch(
+                # new_element = Patch(
                 #    facecolor=element_color,
                 #    edgecolor="black",
                 #    linewidth=0.7,
                 #    label=element_label,
-                #)
-                #legend_elements.append(new_element)
+                # )
+                # legend_elements.append(new_element)
         elif color_mode == 2:
             processing_color = hsv_to_rgb([44 / 360, 0.70, 0.9])
             changeover_color = hsv_to_rgb([180, 0.1, 1])
@@ -407,9 +409,10 @@ class GanttPlotter:
         if file_directory != "":
             os.makedirs(file_directory, exist_ok=True)
         figure = plt.gcf()
-        figure.set_size_inches(16,9)
+        figure.set_size_inches(16, 9)
         plt.savefig(filename, dpi=400)
         plt.close()
+
     def _setup_axis_ticks(self, gnt: Any) -> None:
         """
         Private method to set up the x and y axis ticks of the Gantt plot.
@@ -430,7 +433,9 @@ class GanttPlotter:
         gnt.set_yticks(yticks)
         gnt.set_yticklabels(yticklabels)
 
-    def _plot_jobs(self, gnt: Any, label_processes: bool, label_changeovers:bool) -> None:
+    def _plot_jobs(
+        self, gnt: Any, label_processes: bool, label_changeovers: bool
+    ) -> None:
         """
         Private method to plot the jobs on the Gantt chart.
 
@@ -468,12 +473,13 @@ class GanttPlotter:
                 self._add_labels_to_bars(gnt, job_list, broken_bars, lower_yaxis)
             if label_changeovers:
                 self._add_changeovers_to_bars(gnt, job_list, broken_bars, lower_yaxis)
+
     def _add_labels_to_bars(
-            self,
-            gnt: Any,
-            job_list: List[GanttJob],
-            broken_bars: List[Tuple],
-            lower_yaxis: float,
+        self,
+        gnt: Any,
+        job_list: List[GanttJob],
+        broken_bars: List[Tuple],
+        lower_yaxis: float,
     ) -> None:
         """
         Private method to add labels to the bars in the Gantt chart.
@@ -497,7 +503,7 @@ class GanttPlotter:
         for i, bar in enumerate(broken_bars):
             x = bar[0] + (bar[1] / 2)  # calculate the x position of the label
             y = (
-                    lower_yaxis + self._barheight / 2
+                lower_yaxis + self._barheight / 2
             )  # calculate the y position of the label
             if types[i] == JobTypes.PROCESS:
                 gnt.text(
@@ -511,12 +517,13 @@ class GanttPlotter:
                     fontweight="bold",
                     color="black",
                 )
+
     def _add_changeovers_to_bars(
-            self,
-            gnt: Any,
-            job_list: List[GanttJob],
-            broken_bars: List[Tuple],
-            lower_yaxis: float,
+        self,
+        gnt: Any,
+        job_list: List[GanttJob],
+        broken_bars: List[Tuple],
+        lower_yaxis: float,
     ) -> None:
         """
         Private method to add changeover labels to the bars in the Gantt chart.
@@ -539,7 +546,7 @@ class GanttPlotter:
         for i, bar in enumerate(broken_bars):
             x = bar[0] + (bar[1] / 2)  # calculate the x position of the label
             y = (
-                    lower_yaxis + self._barheight / 2
+                lower_yaxis + self._barheight / 2
             )  # calculate the y position of the label
             if types[i] == JobTypes.CHANGEOVER:
                 gnt.text(
@@ -579,16 +586,16 @@ class GanttPlotter:
             )
 
     def generate_gantt(
-            self,
-            title: str = "",
-            description: str = "",
-            xlabel: str = "t [s]",
-            ylabel: str = "Resources",
-            label_processes: bool = False,
-            label_changeovers: bool = False,
-            color_mode: int = 2,
-            save_to_disk: bool = False,
-            filename: str = "",
+        self,
+        title: str = "",
+        description: str = "",
+        xlabel: str = "t [s]",
+        ylabel: str = "Resources",
+        label_processes: bool = False,
+        label_changeovers: bool = False,
+        color_mode: int = 2,
+        save_to_disk: bool = False,
+        filename: str = "",
     ) -> Figure:
         """
         Generates a Gantt chart from the jobs and resources data provided.
@@ -629,7 +636,7 @@ class GanttPlotter:
         gnt.set_axisbelow(True)
 
         self._generate_color_dict(color_mode)
-        self._plot_jobs(gnt, label_processes,label_changeovers)
+        self._plot_jobs(gnt, label_processes, label_changeovers)
 
         legend_elements = self._create_legend(color_mode, 11)
         # plt.legend(handles=legend_elements, bbox_to_anchor=(1, 1), loc="upper right", ncol=len(legend_elements), fontsize=9)
@@ -711,7 +718,7 @@ class GanttPlotter:
                 new_color = colors[color_index]
                 color_index = color_index + 1
             elif (
-                    mode == 1
+                mode == 1
             ):  # Unique color for each processing job, less saturated color for changeovers
                 if job.job_type == JobTypes.CHANGEOVER:
                     new_color = changeover_color
@@ -724,7 +731,7 @@ class GanttPlotter:
                     new_color = colors[color_index]
                     color_index = color_index + 1
             elif (
-                    mode == 2
+                mode == 2
             ):  # All processing times have the same color, all changeovers have the same color
                 if job.job_type == JobTypes.CHANGEOVER:
                     new_color = changeover_color
@@ -733,7 +740,7 @@ class GanttPlotter:
 
             # Warn if a value in the dictionary is being overwritten
             if job.name in self._job_color_dict and not np.array_equal(
-                    self._job_color_dict[job.name], new_color
+                self._job_color_dict[job.name], new_color
             ):
                 warnings.warn(
                     f"Overwriting color for job {job.name} in the color dictionary"
@@ -759,9 +766,11 @@ class GanttPlotter:
             "attributes": {
                 "_y_tick_distance": self._y_tick_distance,
                 "_barheight": self._barheight,
-                "_job_color_dict": {key: value.tolist() for key, value in self._job_color_dict.items()},
+                "_job_color_dict": {
+                    key: value.tolist() for key, value in self._job_color_dict.items()
+                },
                 "xticks_step_size": self.xticks_step_size,
-                "xticks_max_value": self.xticks_max_value
+                "xticks_max_value": self.xticks_max_value,
             },
             "resources": self._resources,
             "jobs": [
@@ -770,9 +779,10 @@ class GanttPlotter:
                     "duration": job.duration,
                     "resource": job.resource,
                     "name": job.name,
-                    "job_type": job.job_type.value if job.job_type else None
-                } for job in self._jobs
-            ]
+                    "job_type": job.job_type.value if job.job_type else None,
+                }
+                for job in self._jobs
+            ],
         }
 
         # Convert the dictionary to a JSON-formatted string
@@ -795,7 +805,7 @@ class GanttPlotter:
         json_str = self.to_json()
 
         # Write the JSON string to the file
-        with open(filename, 'w') as f:
+        with open(filename, "w") as f:
             f.write(json_str)
 
     @classmethod
@@ -827,8 +837,11 @@ class GanttPlotter:
                 duration=job_data["duration"],
                 resource=job_data["resource"],
                 name=job_data["name"],
-                job_type=JobTypes(job_data["job_type"]) if job_data["job_type"] else None
-            ) for job_data in jobs_data
+                job_type=JobTypes(job_data["job_type"])
+                if job_data["job_type"]
+                else None,
+            )
+            for job_data in jobs_data
         ]
 
         # Reconstruct the GanttPlotter instance
@@ -836,15 +849,19 @@ class GanttPlotter:
             resources=resources,
             jobs=jobs,
             xticks_step_size=schedule_dict["attributes"]["xticks_step_size"],
-            xticks_max_value=schedule_dict["attributes"]["xticks_max_value"]
+            xticks_max_value=schedule_dict["attributes"]["xticks_max_value"],
         )
 
         # Restore the additional attributes
         plotter._y_tick_distance = schedule_dict["attributes"]["_y_tick_distance"]
         plotter._barheight = schedule_dict["attributes"]["_barheight"]
-        plotter._job_color_dict = {key: np.array(value) for key, value in schedule_dict["attributes"]["_job_color_dict"].items()}
+        plotter._job_color_dict = {
+            key: np.array(value)
+            for key, value in schedule_dict["attributes"]["_job_color_dict"].items()
+        }
 
         return plotter
+
 
 if __name__ == "__main__":
     # Define the resources
@@ -904,7 +921,7 @@ if __name__ == "__main__":
         title="Great Gantt 2",
         ylabel="Machines",
         label_processes=True,
-        label_changeovers = False,
+        label_changeovers=False,
         color_mode=2,
         description="Just an example 2",
         save_to_disk=False,

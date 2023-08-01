@@ -1,6 +1,7 @@
 import simpy
 import numpy as np
 
+
 class Order:
 
     """A class that helps me to define and create an Order object.
@@ -10,8 +11,18 @@ class Order:
     are auxiliary in the monitoring of the scheduling process. These instance variables are later
     used in the code to create an Excel Workbook of results."""
 
-    def __init__(self,study,env,operation_id,order_id, machine,machine_id, product_code,stage,valid):
-
+    def __init__(
+        self,
+        study,
+        env,
+        operation_id,
+        order_id,
+        machine,
+        machine_id,
+        product_code,
+        stage,
+        valid,
+    ):
         self.NUM_MACHINES_PER_STAGE = study.NUM_MACHINES_PER_STAGE
         self.NUM_BUFFERS_PER_STAGE = study.NUM_BUFFERS_PER_STAGE
         self.GENERAL_DATA = study.GENERAL_DATA
@@ -20,7 +31,6 @@ class Order:
         self.STAGES = study.STAGES
         self.TOTAL_VISITED_STAGES = study.TOTAL_VISITED_STAGES
         self.buffer_usage = study.buffer_usage
-
 
         self.env = env
         self.order_id = order_id
@@ -31,7 +41,9 @@ class Order:
         self.operation_id = operation_id
         self.stage = stage
         self.total_stages = self.TOTAL_VISITED_STAGES[self.order_id]
-        product_index_gd = self.GENERAL_DATA[self.GENERAL_DATA['product_code'] == self.product_code].index.values.astype(int)[0]
+        product_index_gd = self.GENERAL_DATA[
+            self.GENERAL_DATA["product_code"] == self.product_code
+        ].index.values.astype(int)[0]
         self.due_date = self.GENERAL_DATA.due_date[product_index_gd]
         self.release_date = self.GENERAL_DATA.release_date[product_index_gd]
         self.processing_time = self.PROCESSING_TIMES[machine][product_index_gd]
@@ -48,7 +60,7 @@ class Order:
         self.time_in_buffer = None
         self.position_in_schedule = None
         self.scheduled_by_agent = 0
-        #logging variables
+        # logging variables
         self.changeover_time = 0
         self.buffer_changeover = 0
         self.time_arriving_stage = None
@@ -70,6 +82,8 @@ class Order:
         self.time_end_block = None
         self.position_heuristics = None
         self.next_stage = None
+
+
 class Factory(object):
 
     """A class that helps me to define and create a SimPy Factory Object.
@@ -77,7 +91,7 @@ class Factory(object):
     are being defined. Stage here is a FilterStore, whose items are
     the machines."""
 
-    def __init__(self,study,env):
+    def __init__(self, study, env):
         self.NUM_MACHINES_PER_STAGE = study.NUM_MACHINES_PER_STAGE
         self.NUM_BUFFERS_PER_STAGE = study.NUM_BUFFERS_PER_STAGE
         self.GENERAL_DATA = study.GENERAL_DATA
@@ -88,11 +102,16 @@ class Factory(object):
         self.buffer_usage = study.buffer_usage
 
         self.env = env
-        self.stage = [simpy.FilterStore(env, self.NUM_MACHINES_PER_STAGE[i]) for i in self.STAGES]
+        self.stage = [
+            simpy.FilterStore(env, self.NUM_MACHINES_PER_STAGE[i]) for i in self.STAGES
+        ]
         for i in self.STAGES:
             self.stage[i].items = self.ID_MACHINES_PER_STAGE[i].copy()
 
         if self.buffer_usage != "no_buffers":
-            self.buffer = [simpy.Resource(env, capacity=np.inf) for i in range(len(self.NUM_BUFFERS_PER_STAGE))]
-            #up to 10 orders of the same product can be stored in the buffer
+            self.buffer = [
+                simpy.Resource(env, capacity=np.inf)
+                for i in range(len(self.NUM_BUFFERS_PER_STAGE))
+            ]
+            # up to 10 orders of the same product can be stored in the buffer
         self.finished_orders = []

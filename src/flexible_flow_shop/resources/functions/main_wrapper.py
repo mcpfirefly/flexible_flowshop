@@ -7,11 +7,23 @@ import gym
 
 # Custom environment action masking for probabilities in discrete action space
 
+
 def mask_fn(env):
     return env.valid_action_mask()
 
-def MakeEnvironment(seed,env,masking,reward,norm_obs,norm_rew,action_mode,obs_size,buffer_usage,log_path):
 
+def MakeEnvironment(
+    seed,
+    env,
+    masking,
+    reward,
+    norm_obs,
+    norm_rew,
+    action_mode,
+    obs_size,
+    buffer_usage,
+    log_path,
+):
     """OBSERVATION SIZE"""
     if obs_size == "big":
         env = ObservationWrapper_Big(env)
@@ -42,7 +54,7 @@ def MakeEnvironment(seed,env,masking,reward,norm_obs,norm_rew,action_mode,obs_si
             env = gym.wrappers.ClipAction(env)
 
     """MASKING USE (ONLY DISCRETE AND DISCRETE WITH PROBS)"""
-    if masking and action_mode=='discrete':
+    if masking and action_mode == "discrete":
         env = ActionMasker(env, mask_fn)
     elif masking and action_mode == "discrete_probs":
         env = ProbabilitiesActionMaskEnv(env)
@@ -59,7 +71,9 @@ def MakeEnvironment(seed,env,masking,reward,norm_obs,norm_rew,action_mode,obs_si
     elif reward == "COMPLETION":
         env = RewardWrapper_Completion(env)
     else:
-        print("No reward wrapper was selected! Default will be used instead: PENALIZE ILLEGAL ACTIONS, REWARD LEGAL ACTIONS")
+        print(
+            "No reward wrapper was selected! Default will be used instead: PENALIZE ILLEGAL ACTIONS, REWARD LEGAL ACTIONS"
+        )
         env = RewardWrapper_Default(env)
 
     """INPUT/OUTPUT NORMALIZATION"""
@@ -76,6 +90,13 @@ def MakeEnvironment(seed,env,masking,reward,norm_obs,norm_rew,action_mode,obs_si
         env.action_space.seed(seed)
         env.observation_space.seed(seed)
 
-    info_keywords = ("sim_duration", "oc_costs", "weighted_lateness", "completion_score", "schedule", "total_reward")
+    info_keywords = (
+        "sim_duration",
+        "oc_costs",
+        "weighted_lateness",
+        "completion_score",
+        "schedule",
+        "total_reward",
+    )
     env = Monitor(env=env, filename=log_path, info_keywords=info_keywords)
     return env

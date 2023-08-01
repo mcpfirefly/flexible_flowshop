@@ -3,9 +3,16 @@ from flexible_flow_shop.environment import flexible_flow_shop
 from experiments.rl_algorithms.maskable_ppo import MaskablePPO
 
 from experiments.rl_algorithms.ppo import PPO
-from flexible_flow_shop.resources.functions.custom_wrappers import CustomMaskableEvalCallback as MaskableEvalCallback
-from flexible_flow_shop.resources.functions.custom_wrappers import CustomEvalCallback as EvalCallback
-from flexible_flow_shop.resources.functions.scheduling_functions import get_action_heuristics,GenerateHeuristicResultsFiles
+from flexible_flow_shop.resources.functions.custom_wrappers import (
+    CustomMaskableEvalCallback as MaskableEvalCallback,
+)
+from flexible_flow_shop.resources.functions.custom_wrappers import (
+    CustomEvalCallback as EvalCallback,
+)
+from flexible_flow_shop.resources.functions.scheduling_functions import (
+    get_action_heuristics,
+    GenerateHeuristicResultsFiles,
+)
 
 from custom_plotters.raincloud_plotter.raincloud_plotter import raincloud_plotter
 
@@ -18,28 +25,48 @@ from optuna.pruners import MedianPruner
 import torch.nn as nn
 from typing import Dict, Any, Union, Callable
 
+
 def WrappingEnvironments(study):
     env = flexible_flow_shop(study)
-    train_env = MakeEnvironment(seed=study.seed, env=env, reward=study.reward, masking=study.masking,
-                                     norm_obs=True,
-                                     norm_rew=True,
-                                     action_mode=study.action_space, obs_size=study.obs_size,
-                                     buffer_usage=study.buffer_usage,
-                                     log_path=(study.log_path + "_training"))
-    eval_env = MakeEnvironment(seed=study.seed, env=env, reward=study.reward, masking=study.masking,
-                                    norm_obs=True,
-                                    norm_rew=True,
-                                    action_mode=study.action_space, obs_size=study.obs_size,
-                                    buffer_usage=study.buffer_usage,
-                                    log_path=(study.log_path + "_evaluation"))
+    train_env = MakeEnvironment(
+        seed=study.seed,
+        env=env,
+        reward=study.reward,
+        masking=study.masking,
+        norm_obs=True,
+        norm_rew=True,
+        action_mode=study.action_space,
+        obs_size=study.obs_size,
+        buffer_usage=study.buffer_usage,
+        log_path=(study.log_path + "_training"),
+    )
+    eval_env = MakeEnvironment(
+        seed=study.seed,
+        env=env,
+        reward=study.reward,
+        masking=study.masking,
+        norm_obs=True,
+        norm_rew=True,
+        action_mode=study.action_space,
+        obs_size=study.obs_size,
+        buffer_usage=study.buffer_usage,
+        log_path=(study.log_path + "_evaluation"),
+    )
 
-    test_env = MakeEnvironment(seed=study.seed, env=env, reward=study.reward, masking=study.masking,
-                                    norm_obs=True,
-                                    norm_rew=True,
-                                    action_mode=study.action_space, obs_size=study.obs_size,
-                                    buffer_usage=study.buffer_usage,
-                                    log_path=(study.log_path + "_testing"))
+    test_env = MakeEnvironment(
+        seed=study.seed,
+        env=env,
+        reward=study.reward,
+        masking=study.masking,
+        norm_obs=True,
+        norm_rew=True,
+        action_mode=study.action_space,
+        obs_size=study.obs_size,
+        buffer_usage=study.buffer_usage,
+        log_path=(study.log_path + "_testing"),
+    )
     return env, train_env, eval_env, test_env
+
 
 ##### A CLASS FOR EACH DIFFERENT TEST
 class PPO_Optuna:
@@ -74,9 +101,13 @@ class PPO_Optuna:
         self.config = study.config
         self.log_path = study.log_path
         self.best_model_save_path = study.best_model_save_path
-        self.optuna_log_path = "outputs/{}/{}/Training/Optuna/Logs".format(self.experiment_folder, self.test)
+        self.optuna_log_path = "outputs/{}/{}/Training/Optuna/Logs".format(
+            self.experiment_folder, self.test
+        )
 
-    def linear_schedule(self,initial_value: Union[float, str]) -> Callable[[float], float]:
+    def linear_schedule(
+        self, initial_value: Union[float, str]
+    ) -> Callable[[float], float]:
         if isinstance(initial_value, str):
             initial_value = float(initial_value)
 
@@ -134,16 +165,16 @@ class PPO_Optuna:
         """Callback used for evaluating and reporting a trial."""
 
         def __init__(
-                self,
-                eval_env: gym.Env,  #:param eval_env: The environment used for initialization
-                trial: optuna.Trial,
-                n_eval_episodes: int,
-                eval_freq: int,
-                deterministic: bool = True,
-                verbose: int = 1,
-                best_model_save_path_in: str = "input path - best_model_save_path",
-                # GHKVD 21062022: added to store best model
-                log_path_in: str = "input path - log_path ",  # GHKVD 21062022: added to store evaluation results
+            self,
+            eval_env: gym.Env,  #:param eval_env: The environment used for initialization
+            trial: optuna.Trial,
+            n_eval_episodes: int,
+            eval_freq: int,
+            deterministic: bool = True,
+            verbose: int = 1,
+            best_model_save_path_in: str = "input path - best_model_save_path",
+            # GHKVD 21062022: added to store best model
+            log_path_in: str = "input path - log_path ",  # GHKVD 21062022: added to store evaluation results
         ):
             super().__init__(
                 eval_env=eval_env,
@@ -189,16 +220,16 @@ class PPO_Optuna:
         """Callback used for evaluating and reporting a trial."""
 
         def __init__(
-                self,
-                eval_env: gym.Env,  #:param eval_env: The environment used for initialization
-                trial: optuna.Trial,
-                n_eval_episodes: int,
-                eval_freq: int,
-                deterministic: bool = True,
-                verbose: int = 1,
-                best_model_save_path_in: str = "input path - best_model_save_path",
-                # GHKVD 21062022: added to store best model
-                log_path_in: str = "input path - log_path ",  # GHKVD 21062022: added to store evaluation results
+            self,
+            eval_env: gym.Env,  #:param eval_env: The environment used for initialization
+            trial: optuna.Trial,
+            n_eval_episodes: int,
+            eval_freq: int,
+            deterministic: bool = True,
+            verbose: int = 1,
+            best_model_save_path_in: str = "input path - best_model_save_path",
+            # GHKVD 21062022: added to store best model
+            log_path_in: str = "input path - log_path ",  # GHKVD 21062022: added to store evaluation results
         ):
             super().__init__(
                 eval_env=eval_env,
@@ -241,14 +272,14 @@ class PPO_Optuna:
             # logging.debug("TrialEvalCallback___on_step3")
             # print("Trial not pruned!")
             return True
-    def objective(self,trial: optuna.Trial) -> float:
 
+    def objective(self, trial: optuna.Trial) -> float:
         DEFAULT_HYPERPARAMS = {
             "policy": "MlpPolicy",
             "env": self.train_env,
             "verbose": 2,
             "seed": self.seed,
-            "tensorboard_log": self.optuna_log_path
+            "tensorboard_log": self.optuna_log_path,
         }
         kwargs = DEFAULT_HYPERPARAMS.copy()
         # Sample hyperparameters
@@ -257,14 +288,24 @@ class PPO_Optuna:
         if self.masking and self.action_space == "discrete":
             model = MaskablePPO(**kwargs)
             eval_callback = self.MaskableTrialEvalCallback(
-                self.eval_env, trial, n_eval_episodes=self.N_EVAL_EPISODES, eval_freq=self.EVAL_FREQ, deterministic=False,
-                best_model_save_path_in=self.best_model_save_path, log_path_in=self.optuna_log_path,
+                self.eval_env,
+                trial,
+                n_eval_episodes=self.N_EVAL_EPISODES,
+                eval_freq=self.EVAL_FREQ,
+                deterministic=False,
+                best_model_save_path_in=self.best_model_save_path,
+                log_path_in=self.optuna_log_path,
             )
         else:
             model = PPO(**kwargs)
             eval_callback = self.TrialEvalCallback(
-                self.eval_env, trial, n_eval_episodes=self.N_EVAL_EPISODES, eval_freq=self.EVAL_FREQ, deterministic=False,
-                best_model_save_path_in=self.best_model_save_path, log_path_in=self.optuna_log_path,
+                self.eval_env,
+                trial,
+                n_eval_episodes=self.N_EVAL_EPISODES,
+                eval_freq=self.EVAL_FREQ,
+                deterministic=False,
+                best_model_save_path_in=self.best_model_save_path,
+                log_path_in=self.optuna_log_path,
             )
         # new trial variables:
         print("new trial, new variables")
@@ -273,16 +314,24 @@ class PPO_Optuna:
         try:
             iteration_no = 1  # initial iteration number of saving/ loading runs
             save_after_n_steps = self.N_TIMESTEPS
-            total_iterations = int(self.N_TIMESTEPS / save_after_n_steps)  # total number of iterations to be saved/ loaded
+            total_iterations = int(
+                self.N_TIMESTEPS / save_after_n_steps
+            )  # total number of iterations to be saved/ loaded
 
             # check if total_iterations is zero, set to 1 if
             if total_iterations == 0:
                 total_iterations = 1
 
             steps_so_far = 0  # steps so far in trained in this test
-            steps_per_iteration = self.N_TIMESTEPS / total_iterations  # steps to be trained per iteration of saving and loading
+            steps_per_iteration = (
+                self.N_TIMESTEPS / total_iterations
+            )  # steps to be trained per iteration of saving and loading
 
-            model.learn(steps_so_far + steps_per_iteration, callback=eval_callback, reset_num_timesteps=False)
+            model.learn(
+                steps_so_far + steps_per_iteration,
+                callback=eval_callback,
+                reset_num_timesteps=False,
+            )
             model.save(self.best_model_save_path + "model_save")
             model.save(self.best_model_save_path + "model_save_" + str(steps_so_far))
 
@@ -306,9 +355,15 @@ class PPO_Optuna:
                 model.env.reset()
                 print("reseted")
                 print("start learning")
-                model.learn(steps_per_iteration, callback=eval_callback, reset_num_timesteps=False)
+                model.learn(
+                    steps_per_iteration,
+                    callback=eval_callback,
+                    reset_num_timesteps=False,
+                )
                 model.save(self.best_model_save_path + "model_save")
-                model.save(self.best_model_save_path + "model_save_" + str(steps_so_far))
+                model.save(
+                    self.best_model_save_path + "model_save_" + str(steps_so_far)
+                )
                 steps_so_far = steps_so_far + steps_per_iteration
                 iteration_no = iteration_no + 1
 
@@ -346,10 +401,19 @@ class PPO_Optuna:
         torch.set_num_threads(1)
 
         sampler = TPESampler(n_startup_trials=self.N_STARTUP_TRIALS, seed=self.seed)
-        pruner = MedianPruner(n_startup_trials=self.N_STARTUP_TRIALS, n_warmup_steps=self.N_TIMESTEPS // 3)
+        pruner = MedianPruner(
+            n_startup_trials=self.N_STARTUP_TRIALS, n_warmup_steps=self.N_TIMESTEPS // 3
+        )
 
-        study = optuna.create_study(storage="sqlite:///outputs/{}/Optuna_Trial.db".format(self.experiment_folder),
-                                    study_name="Optuna_Trial", sampler=sampler, pruner=pruner, direction="maximize")
+        study = optuna.create_study(
+            storage="sqlite:///outputs/{}/Optuna_Trial.db".format(
+                self.experiment_folder
+            ),
+            study_name="Optuna_Trial",
+            sampler=sampler,
+            pruner=pruner,
+            direction="maximize",
+        )
 
         print("created optuna study")
         print("start study optimize")
@@ -363,7 +427,7 @@ class PPO_Optuna:
 
         print("  Value: ", trial.value)
 
-        with open('best_trial.txt', 'w') as f:
+        with open("best_trial.txt", "w") as f:
             print("Best trial:", file=f)
             print("  Value: ", trial.value, file=f)
             print("  Params: ", file=f)
@@ -377,9 +441,10 @@ class PPO_Optuna:
         print("  User attrs:")
         for key, value in trial.user_attrs.items():
             print("    {}: {}".format(key, value))
-class PPO_Manual_Parameters:
-    def __init__(self,study):
 
+
+class PPO_Manual_Parameters:
+    def __init__(self, study):
         self.ORDERS = study.ORDERS
         self.CHANGEOVER = study.CHANGEOVER
         self.recreate_solution = study.recreate_solution
@@ -407,7 +472,10 @@ class PPO_Manual_Parameters:
         self.train_env = train_env
         self.eval_env = eval_env
         self.test_env = test_env
-    def linear_schedule(self,initial_value: Union[float, str]) -> Callable[[float], float]:
+
+    def linear_schedule(
+        self, initial_value: Union[float, str]
+    ) -> Callable[[float], float]:
         if isinstance(initial_value, str):
             initial_value = float(initial_value)
 
@@ -420,7 +488,7 @@ class PPO_Manual_Parameters:
         gamma = 0.9574554332294194
         max_grad_norm = 0.3178814931041116
         gae_lambda = 0.8170314419786968
-        n_steps = 2 ** 6
+        n_steps = 2**6
         learning_rate = 0.0021724161836662818
         ent_coef = 0.0321016635395011
         lr_schedule = "linear"
@@ -449,7 +517,7 @@ class PPO_Manual_Parameters:
         gamma = 0.9966873310693646
         max_grad_norm = 0.35270779889789233
         gae_lambda = 0.9721977226163961
-        n_steps = 2 ** 4
+        n_steps = 2**4
         learning_rate = 2.1120967608851453e-05
         ent_coef = 0.003309847983555168
         lr_schedule = "linear"
@@ -478,7 +546,7 @@ class PPO_Manual_Parameters:
         gamma = 0.9822742318642296
         max_grad_norm = 1.3746408813884265
         gae_lambda = 0.9885707604345161
-        n_steps = 2 ** 8
+        n_steps = 2**8
         learning_rate = 0.0006070259771275158
         ent_coef = 4.93550898574578e-06
         lr_schedule = "linear"
@@ -504,10 +572,7 @@ class PPO_Manual_Parameters:
         }
 
     def PPO_Manual_Parameters_run(self):
-
-        policy_kwargs = {
-            "net_arch": [64, 64, 64, 64]
-        }
+        policy_kwargs = {"net_arch": [64, 64, 64, 64]}
 
         DEFAULT_HYPERPARAMS = {
             "policy": "MlpPolicy",
@@ -527,26 +592,36 @@ class PPO_Manual_Parameters:
 
         if self.masking and self.action_space == "discrete":
             model = MaskablePPO(**kwargs)
-            eval_callback = MaskableEvalCallback(self.eval_env,
-                                                 n_eval_episodes=self.N_EVAL_EPISODES,
-                                                 eval_freq=self.EVAL_FREQ,
-                                                 best_model_save_path=self.best_model_save_path,
-                                                 verbose=2)
+            eval_callback = MaskableEvalCallback(
+                self.eval_env,
+                n_eval_episodes=self.N_EVAL_EPISODES,
+                eval_freq=self.EVAL_FREQ,
+                best_model_save_path=self.best_model_save_path,
+                verbose=2,
+            )
         else:
             model = PPO(**kwargs)
-            eval_callback = EvalCallback(self.eval_env,
-                                         n_eval_episodes=self.N_EVAL_EPISODES,
-                                         eval_freq=self.EVAL_FREQ,
-                                         best_model_save_path=self.best_model_save_path,
-                                         verbose=2,
-                                         deterministic=False)
+            eval_callback = EvalCallback(
+                self.eval_env,
+                n_eval_episodes=self.N_EVAL_EPISODES,
+                eval_freq=self.EVAL_FREQ,
+                best_model_save_path=self.best_model_save_path,
+                verbose=2,
+                deterministic=False,
+            )
 
         obs = model.env.reset()
         print("learning started")
-        model.learn(total_timesteps=self.N_TIMESTEPS, reset_num_timesteps=False, callback=eval_callback)
+        model.learn(
+            total_timesteps=self.N_TIMESTEPS,
+            reset_num_timesteps=False,
+            callback=eval_callback,
+        )
         print("learning finished")
+
+
 class PPO_Test_Trained:
-    def __init__(self,study):
+    def __init__(self, study):
         self.use_trained_with_solution = False
 
         self.ORDERS = study.ORDERS
@@ -575,10 +650,8 @@ class PPO_Test_Trained:
         self.test_env = test_env
 
     def PPO_Test_Trained_Run(self):
-
         if self.use_trained_with_solution:
             model_to_load = "TBD"
-
 
         if self.action_space == "discrete" and self.masking:
             model_to_load = None
@@ -605,14 +678,20 @@ class PPO_Test_Trained:
 
             while not done:
                 if self.masking and self.action_space == "discrete":
-                    action, _ = model.predict(obs, action_masks=self.env.valid_action_mask(), deterministic=True)
+                    action, _ = model.predict(
+                        obs,
+                        action_masks=self.env.valid_action_mask(),
+                        deterministic=True,
+                    )
                 else:
                     action, _ = model.predict(obs, deterministic=True)
 
                 obs, rewards, done, info = model.env.step(action)
             print("Episode terminated!")
+
+
 class PPO_Simple_Run:
-    def __init__(self,study):
+    def __init__(self, study):
         self.N_TEST_EPISODES = study.N_TIMESTEPS
         self.ORDERS = study.ORDERS
         self.CHANGEOVER = study.CHANGEOVER
@@ -640,8 +719,8 @@ class PPO_Simple_Run:
         self.train_env = train_env
         self.eval_env = eval_env
         self.test_env = test_env
-    def PPO_Simple_Run_run(self):
 
+    def PPO_Simple_Run_run(self):
         for episode in range(self.N_TEST_EPISODES):
             obs = self.env.reset()
             sim_init = datetime.datetime.now()
@@ -655,8 +734,13 @@ class PPO_Simple_Run:
                     if self.recreate_solution != None:
                         action = current_legal_operations[0]
                     elif self.generate_heuristic_schedules != None:
-                        action, counter = get_action_heuristics(self.env, current_legal_operations, counter,
-                                                                 self.generate_heuristic_schedules, self.CHANGEOVER)
+                        action, counter = get_action_heuristics(
+                            self.env,
+                            current_legal_operations,
+                            counter,
+                            self.generate_heuristic_schedules,
+                            self.CHANGEOVER,
+                        )
                     else:
                         action = np.random.choice(current_legal_operations)
 
@@ -679,7 +763,10 @@ class PPO_Simple_Run:
                     self.env.render()
 
                 else:
-                    if self.generate_heuristic_schedules == "FIFO" or self.generate_heuristic_schedules == "SPT":
+                    if (
+                        self.generate_heuristic_schedules == "FIFO"
+                        or self.generate_heuristic_schedules == "SPT"
+                    ):
                         env_variable = self.env.sim_duration
                         env_list_optimization_variable = flatten_list_makespans
 
@@ -696,8 +783,12 @@ class PPO_Simple_Run:
                     upper_condition = mean + 0.1 * std
                     lower_condition = mean - 0.1 * std
 
-                    if (env_variable <= upper_condition and env_variable >= lower_condition) or env_variable < np.min(
-                            env_list_optimization_variable):  # IF ANY SIMULATION IS BETTER THAN PAST ONES, RENDER
+                    if (
+                        env_variable <= upper_condition
+                        and env_variable >= lower_condition
+                    ) or env_variable < np.min(
+                        env_list_optimization_variable
+                    ):  # IF ANY SIMULATION IS BETTER THAN PAST ONES, RENDER
                         self.env.render()
                         print("PLOT: YES")
                     else:
@@ -724,14 +815,27 @@ class PPO_Simple_Run:
                 "AVERAGE": np.average(env_list_optimization_variable),
                 "MEAN": np.mean(env_list_optimization_variable),
                 "STD": np.std(env_list_optimization_variable),
-                "RSTD": 100 * np.std(env_list_optimization_variable) / np.mean(env_list_optimization_variable),
+                "RSTD": 100
+                * np.std(env_list_optimization_variable)
+                / np.mean(env_list_optimization_variable),
                 "MIN": np.min(env_list_optimization_variable),
                 "MAX": np.max(env_list_optimization_variable),
             }
 
-            data = pd.DataFrame({"MAKESPAN": flatten_list_makespans,
-                                 "OCC": flatten_list_occ,
-                                 'WL': flatten_list_wl})
+            data = pd.DataFrame(
+                {
+                    "MAKESPAN": flatten_list_makespans,
+                    "OCC": flatten_list_occ,
+                    "WL": flatten_list_wl,
+                }
+            )
 
-            GenerateHeuristicResultsFiles(data, results_path, self.generate_heuristic_schedules, info_heuristics)
-            raincloud_plotter(data, results_path, self.N_TEST_EPISODES, self.generate_heuristic_schedules)
+            GenerateHeuristicResultsFiles(
+                data, results_path, self.generate_heuristic_schedules, info_heuristics
+            )
+            raincloud_plotter(
+                data,
+                results_path,
+                self.N_TEST_EPISODES,
+                self.generate_heuristic_schedules,
+            )

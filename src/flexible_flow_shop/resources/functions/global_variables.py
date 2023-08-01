@@ -5,6 +5,7 @@ from itertools import chain, repeat
 import datetime
 import pandas as pd
 
+
 class StudyCase:
     def __init__(self, config):
         self.config = config
@@ -15,7 +16,10 @@ class StudyCase:
         self._initialize_data(self.config)
 
         self.log_path = f"outputs/{self.experiment_folder}/{self.test}/Training/Logs"
-        self.best_model_save_path = f"outputs/{self.experiment_folder}/{self.test}/Training/Saved_Models"
+        self.best_model_save_path = (
+            f"outputs/{self.experiment_folder}/{self.test}/Training/Saved_Models"
+        )
+
     def _initialize_data(self, cfg):
         self.seed = cfg.seed
         self.N_TIMESTEPS = cfg.N_TIMESTEPS
@@ -40,27 +44,40 @@ class StudyCase:
             self.GENERAL_DATA = self.GeneralStudyCase()
             self.SOLUTION = None
         elif self.recreate_solution is not None or (
-                self.workbook == "kopanos" and self.action_space == "discrete_probs" and
-                self.products_number == 30 and self.solution_hints is not None):
+            self.workbook == "kopanos"
+            and self.action_space == "discrete_probs"
+            and self.products_number == 30
+            and self.solution_hints is not None
+        ):
             self.FIFO = False
             self.buffer_usage = "no_buffers"
             self.workbook = "kopanos"
             self.filename = self.StudyCaseFilename()
             self.products_number = 30
-            self.GENERAL_DATA = pd.read_excel(self.filename, sheet_name="general_data_30")
+            self.GENERAL_DATA = pd.read_excel(
+                self.filename, sheet_name="general_data_30"
+            )
             self.SOLUTION = self.KopanosStudyCase()
 
         self.MAKESPAN = list()
         self.TASK_LIST = list()
         self.FINISHED_ORDERS = list()
-        self.PROCESSING_TIMES = pd.read_excel(self.filename, sheet_name="processing_times")
+        self.PROCESSING_TIMES = pd.read_excel(
+            self.filename, sheet_name="processing_times"
+        )
         self.MACHINES_PER_STAGE = pd.read_excel(self.filename, sheet_name="machines")
-        self.NUM_MACHINES_PER_STAGE = list(collections.Counter(self.MACHINES_PER_STAGE["stage"].tolist()).values())
+        self.NUM_MACHINES_PER_STAGE = list(
+            collections.Counter(self.MACHINES_PER_STAGE["stage"].tolist()).values()
+        )
         self.IMPACT_FACTORS = pd.read_excel(self.filename, sheet_name="impact_factors")
 
         if self.buffer_usage != "no_buffers":
-            self.BUFFERS_PER_STAGE = pd.read_excel(self.filename, sheet_name="buffer_tanks")
-            self.NUM_BUFFERS_PER_STAGE = list(collections.Counter(self.BUFFERS_PER_STAGE["stages"].tolist()).values())
+            self.BUFFERS_PER_STAGE = pd.read_excel(
+                self.filename, sheet_name="buffer_tanks"
+            )
+            self.NUM_BUFFERS_PER_STAGE = list(
+                collections.Counter(self.BUFFERS_PER_STAGE["stages"].tolist()).values()
+            )
             self.BUFFERS = list(self.BUFFERS_PER_STAGE.buffer)
         else:
             self.BUFFERS_PER_STAGE = None
@@ -69,7 +86,7 @@ class StudyCase:
 
         self.MACHINES = list(self.MACHINES_PER_STAGE.machine)
         if self.BUFFERS:
-            self.RESOURCES = (self.MACHINES + self.BUFFERS)
+            self.RESOURCES = self.MACHINES + self.BUFFERS
         else:
             self.RESOURCES = self.MACHINES
 
@@ -77,24 +94,35 @@ class StudyCase:
 
         self.ORDERS = self.create_orders_from_general_data_workbook()
 
-        if self.recreate_solution != None or (self.workbook == "kopanos"
-                                              and self.action_space == "discrete_probs"
-                                              and self.solution_hints != None):
+        if self.recreate_solution != None or (
+            self.workbook == "kopanos"
+            and self.action_space == "discrete_probs"
+            and self.solution_hints != None
+        ):
             self.ORDERS = self.SOLUTION
         else:
             self.ORDERS = self.create_orders_from_general_data_workbook()
-        self.ORDERS = self.ORDERS.merge(self.MACHINES_PER_STAGE, on=['machine'], how="left")
+        self.ORDERS = self.ORDERS.merge(
+            self.MACHINES_PER_STAGE, on=["machine"], how="left"
+        )
         self.ORDERS = self.set_invalid_actions_workbook()
         self.JOBS = list(set(list(self.ORDERS.order_id)))
 
         self.INDEX_MACHINES = self.get_index_machines_workbook()
         self.TOTAL_VISITED_STAGES = self.get_total_visited_stages_workbook()
-        self.TOTAL_JOBS_PER_STAGE, self.N_OPERATIONS = self.get_jobs_per_stage_workbook()
+        (
+            self.TOTAL_JOBS_PER_STAGE,
+            self.N_OPERATIONS,
+        ) = self.get_jobs_per_stage_workbook()
         self.CHANGEOVER = self.read_changeover_times()
         self.ID_MACHINES_PER_STAGE = self.obtain_machine_requested_per_stage()
 
     def create_orders_from_general_data_workbook(self):
-        flatten = lambda *n: (e for a in n for e in (flatten(*a) if isinstance(a, (tuple, list)) else (a,)))
+        flatten = lambda *n: (
+            e
+            for a in n
+            for e in (flatten(*a) if isinstance(a, (tuple, list)) else (a,))
+        )
         a = self.GENERAL_DATA.quantity.tolist()
         b = self.GENERAL_DATA.product_code.tolist()
         c = list(chain.from_iterable([x] * y for x, y in zip(b, a)))
@@ -113,11 +141,11 @@ class StudyCase:
             sublist = list(flatten(m[index]))
             n.append(sublist)  # operation_id
         df = pd.DataFrame.from_records(n)
-        df.columns = ['operation_id', 'order_id', 'product_code', "machine"]
+        df.columns = ["operation_id", "order_id", "product_code", "machine"]
         return df
 
     def set_invalid_actions_workbook(self):
-        df = self.ORDERS[['product_code', 'machine']]
+        df = self.ORDERS[["product_code", "machine"]]
         result = [tuple(r) for r in df.to_numpy()]
         list_of_valid_actions = []
         for item in result:
@@ -131,12 +159,12 @@ class StudyCase:
             else:
                 list_of_valid_actions.append(1)
 
-        valid_actions = pd.DataFrame({'valid': list_of_valid_actions})
+        valid_actions = pd.DataFrame({"valid": list_of_valid_actions})
         orders_with_invalid = self.ORDERS.join(valid_actions)
         return orders_with_invalid
 
     def get_total_visited_stages_workbook(self):
-        df = self.ORDERS[['order_id', 'stage', 'valid']]
+        df = self.ORDERS[["order_id", "stage", "valid"]]
         df = df[df["valid"] == 1]
         result = [tuple(r) for r in df.to_numpy()]
         set_ = list(set(result))
@@ -146,7 +174,7 @@ class StudyCase:
         return self.TOTAL_VISITED_STAGES
 
     def get_stage_of_machine_workbook(self):
-        df = self.ORDERS[['operation_id', 'machine']]
+        df = self.ORDERS[["operation_id", "machine"]]
         result = [tuple(r) for r in df.to_numpy()]
         set_ = list(set(result))
         self.N_OPERATIONS = len(set_)
@@ -157,7 +185,7 @@ class StudyCase:
 
     def get_jobs_per_stage_workbook(self):
         # Get the number of orders per each stage and store in variable TOTAL_JOBS_PER_STAGE
-        df = self.ORDERS[['order_id', 'stage', 'valid']]
+        df = self.ORDERS[["order_id", "stage", "valid"]]
         df = df[df["valid"] == 1]
         result = [tuple(r) for r in df.to_numpy()]
         set_ = list(set(result))
@@ -169,7 +197,7 @@ class StudyCase:
 
     def get_index_machines_workbook(self):
         # INDEX MACHINES will be used to generate the variable machines_per_stage
-        df = self.MACHINES_PER_STAGE[['stage', 'machine_id']]
+        df = self.MACHINES_PER_STAGE[["stage", "machine_id"]]
         result = [tuple(r) for r in df.to_numpy()]
         set_ = list(set(result))
         self.INDEX_MACHINES = [[] for _ in range(len(self.STAGES))]
@@ -198,14 +226,20 @@ class StudyCase:
         in sublists that represent each stage"""
         self.ID_MACHINES_PER_STAGE = dict()
         for i in self.STAGES:
-            self.ID_MACHINES_PER_STAGE[i] = list(self.MACHINES_PER_STAGE.set_index("stage").loc[[i]].loc[:, "machine"])
+            self.ID_MACHINES_PER_STAGE[i] = list(
+                self.MACHINES_PER_STAGE.set_index("stage").loc[[i]].loc[:, "machine"]
+            )
         return self.ID_MACHINES_PER_STAGE
 
-    def StudyCaseFilename(self,workbook):
+    def StudyCaseFilename(self, workbook):
         if workbook == "kopanos":
-            self.filename = "C:/Users/{}/PycharmProjects/flexible_flowshop/src/flexible_flow_shop/resources/workbooks/kopanos_scheduling_data.xlsx".format(os.getlogin())
+            self.filename = "C:/Users/{}/PycharmProjects/flexible_flowshop/src/flexible_flow_shop/resources/workbooks/kopanos_scheduling_data.xlsx".format(
+                os.getlogin()
+            )
         elif workbook == "general":
-            self.filename = "C:/Users/{}/PycharmProjects/flexible_flowshop/src/flexible_flow_shop/resources/workbooks/general_scheduling_data.xlsx".format(os.getlogin())
+            self.filename = "C:/Users/{}/PycharmProjects/flexible_flowshop/src/flexible_flow_shop/resources/workbooks/general_scheduling_data.xlsx".format(
+                os.getlogin()
+            )
         return self.filename
 
     def GeneralStudyCase(self):
@@ -213,24 +247,51 @@ class StudyCase:
         return self.GENERAL_DATA
 
     def KopanosStudyCase(self):
-
         if self.products_number == 30:
-
             if self.recreate_solution == None or self.solution_hints == None:
-                self.GENERAL_DATA = pd.read_excel(self.filename, sheet_name="general_data_30")
+                self.GENERAL_DATA = pd.read_excel(
+                    self.filename, sheet_name="general_data_30"
+                )
 
-                if self.recreate_solution == "kopanos" or (self.action_space == "discrete_probs" and self.solution_hints == "kopanos"):
-                    self.GENERAL_DATA = pd.read_excel(self.filename, sheet_name="kopanos_solution_30")
-                elif self.recreate_solution == "SPT" or (self.action_space == "discrete_probs" and self.solution_hints == "SPT"):
-                    self.GENERAL_DATA = pd.read_excel(self.filename, sheet_name="spt_solution_30")
-                elif self.recreate_solution == "SCT" or (self.action_space == "discrete_probs" and self.solution_hints == "SCT"):
-                    self.GENERAL_DATA = pd.read_excel(self.filename, sheet_name="sct_solution_30")
-                elif self.recreate_solution == "EDD" or (self.action_space == "discrete_probs" and self.solution_hints == "EDD"):
-                    self.GENERAL_DATA = pd.read_excel(self.filename, sheet_name="edd_solution_30")
-                elif self.recreate_solution == "FIFO" or (self.action_space == "discrete_probs" and self.solution_hints == "FIFO"):
-                    self.GENERAL_DATA = pd.read_excel(self.filename, sheet_name="fifo_solution_30")
+                if self.recreate_solution == "kopanos" or (
+                    self.action_space == "discrete_probs"
+                    and self.solution_hints == "kopanos"
+                ):
+                    self.GENERAL_DATA = pd.read_excel(
+                        self.filename, sheet_name="kopanos_solution_30"
+                    )
+                elif self.recreate_solution == "SPT" or (
+                    self.action_space == "discrete_probs"
+                    and self.solution_hints == "SPT"
+                ):
+                    self.GENERAL_DATA = pd.read_excel(
+                        self.filename, sheet_name="spt_solution_30"
+                    )
+                elif self.recreate_solution == "SCT" or (
+                    self.action_space == "discrete_probs"
+                    and self.solution_hints == "SCT"
+                ):
+                    self.GENERAL_DATA = pd.read_excel(
+                        self.filename, sheet_name="sct_solution_30"
+                    )
+                elif self.recreate_solution == "EDD" or (
+                    self.action_space == "discrete_probs"
+                    and self.solution_hints == "EDD"
+                ):
+                    self.GENERAL_DATA = pd.read_excel(
+                        self.filename, sheet_name="edd_solution_30"
+                    )
+                elif self.recreate_solution == "FIFO" or (
+                    self.action_space == "discrete_probs"
+                    and self.solution_hints == "FIFO"
+                ):
+                    self.GENERAL_DATA = pd.read_excel(
+                        self.filename, sheet_name="fifo_solution_30"
+                    )
 
         elif self.products_number == 60:
-            self.GENERAL_DATA = pd.read_excel(self.filename, sheet_name="general_data_60")
+            self.GENERAL_DATA = pd.read_excel(
+                self.filename, sheet_name="general_data_60"
+            )
 
         return self.GENERAL_DATA
