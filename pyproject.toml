@@ -1,8 +1,8 @@
 [tool.poetry]
-name = "model-based-rl-mcpf"
+name = "flexible-flowshop"
 version = "0.1.0"
 description = ""
-authors = ["Maria Cristina Pena Fuentes <mariacristina.pena@tu-dortmund.de>", "Dominik Bleidorn <dominikr.bleidorn@tu-dortmund.de>"]
+authors = ["Maria Cristina Peña Fuentes <mariacristina.pena@tu-dortmund.de>", "Dominik Bleidorn <dominikr.bleidorn@tu-dortmund.de>"]
 readme = "README.md"
 packages = [{include = "src"}]
 
