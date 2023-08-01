@@ -7,9 +7,9 @@ import ast, re
 
 def StudyCaseFilename(workbook):
     if workbook == "kopanos":
-        filename = "C:/Users/{}/PycharmProjects/Model_based_RL_MCPF/src/flexible_flow_shop/resources/workbooks/kopanos_scheduling_data.xlsx".format(os.getlogin())
+        filename = "C:/Users/{}/PycharmProjects/flexible_flowshop/src/flexible_flow_shop/resources/workbooks/kopanos_scheduling_data.xlsx".format(os.getlogin())
     elif workbook == "general":
-        filename = "C:/Users/{}/PycharmProjects/Model_based_RL_MCPF/src/flexible_flow_shop/resources/workbooks/general_scheduling_data.xlsx".format(os.getlogin())
+        filename = "C:/Users/{}/PycharmProjects/flexible_flowshop/src/flexible_flow_shop/resources/workbooks/general_scheduling_data.xlsx".format(os.getlogin())
     return filename
 
 def GeneralStudyCase(filename):
