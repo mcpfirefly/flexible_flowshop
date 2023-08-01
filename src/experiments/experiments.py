@@ -1,7 +1,6 @@
 from flexible_flow_shop.resources.functions.main_wrapper import MakeEnvironment
 from flexible_flow_shop.environment import flexible_flow_shop
 from experiments.rl_algorithms.maskable_ppo import MaskablePPO
-
 from experiments.rl_algorithms.ppo import PPO
 from flexible_flow_shop.resources.functions.custom_wrappers import (
     CustomMaskableEvalCallback as MaskableEvalCallback,
@@ -26,11 +25,10 @@ import torch.nn as nn
 from typing import Dict, Any, Union, Callable
 
 
-def WrappingEnvironments(study):
-    env = flexible_flow_shop(study)
-    train_env = MakeEnvironment(
+def make_environment(study, suffix):
+    return MakeEnvironment(
         seed=study.seed,
-        env=env,
+        env=flexible_flow_shop(study),
         reward=study.reward,
         masking=study.masking,
         norm_obs=True,
@@ -38,51 +36,26 @@ def WrappingEnvironments(study):
         action_mode=study.action_space,
         obs_size=study.obs_size,
         buffer_usage=study.buffer_usage,
-        log_path=(study.log_path + "_training"),
+        log_path=(study.log_path + suffix),
     )
-    eval_env = MakeEnvironment(
-        seed=study.seed,
-        env=env,
-        reward=study.reward,
-        masking=study.masking,
-        norm_obs=True,
-        norm_rew=True,
-        action_mode=study.action_space,
-        obs_size=study.obs_size,
-        buffer_usage=study.buffer_usage,
-        log_path=(study.log_path + "_evaluation"),
-    )
-
-    test_env = MakeEnvironment(
-        seed=study.seed,
-        env=env,
-        reward=study.reward,
-        masking=study.masking,
-        norm_obs=True,
-        norm_rew=True,
-        action_mode=study.action_space,
-        obs_size=study.obs_size,
-        buffer_usage=study.buffer_usage,
-        log_path=(study.log_path + "_testing"),
-    )
-    return env, train_env, eval_env, test_env
 
 
 ##### A CLASS FOR EACH DIFFERENT TEST
 class PPO_Optuna:
     def __init__(self, study):
         self.DEVICE = torch.device("cpu")
+        self.initialize_global_variables(study)
         self.N_TRIALS = 5
         self.N_STARTUP_TRIALS = 1
-        self.N_TIMESTEPS = study.N_TIMESTEPS  # for every trial
         self.N_EVALUATIONS = self.N_TIMESTEPS / 1000  # evaluations per trial
         self.EVAL_FREQ = int(self.N_TIMESTEPS / self.N_EVALUATIONS)
         self.N_EVAL_EPISODES = 10
-        env, train_env, eval_env, test_env = WrappingEnvironments(study)
-        self.env = env
-        self.train_env = train_env
-        self.eval_env = eval_env
-        self.test_env = test_env
+        self.optuna_log_path = "outputs/{}/{}/Training/Optuna/Logs".format(
+            self.experiment_folder, self.test
+        )
+
+    def initialize_global_variables(self, study):
+        self.N_TIMESTEPS = study.N_TIMESTEPS  # for every trial
         self.ORDERS = study.ORDERS
         self.CHANGEOVER = study.CHANGEOVER
         self.recreate_solution = study.recreate_solution
@@ -101,9 +74,9 @@ class PPO_Optuna:
         self.config = study.config
         self.log_path = study.log_path
         self.best_model_save_path = study.best_model_save_path
-        self.optuna_log_path = "outputs/{}/{}/Training/Optuna/Logs".format(
-            self.experiment_folder, self.test
-        )
+        self.train_env = make_environment(study, "_training")
+        self.eval_env = make_environment(study, "_evaluation")
+        self.test_env = make_environment(study, "_testing")
 
     def linear_schedule(
         self, initial_value: Union[float, str]
@@ -166,15 +139,14 @@ class PPO_Optuna:
 
         def __init__(
             self,
-            eval_env: gym.Env,  #:param eval_env: The environment used for initialization
+            eval_env: gym.Env,
             trial: optuna.Trial,
             n_eval_episodes: int,
             eval_freq: int,
             deterministic: bool = True,
             verbose: int = 1,
             best_model_save_path_in: str = "input path - best_model_save_path",
-            # GHKVD 21062022: added to store best model
-            log_path_in: str = "input path - log_path ",  # GHKVD 21062022: added to store evaluation results
+            log_path_in: str = "input path - log_path ",
         ):
             super().__init__(
                 eval_env=eval_env,
@@ -188,20 +160,9 @@ class PPO_Optuna:
             self.trial = trial
             self.eval_idx = 0
             self.is_pruned = False
-            print("TrialEvalCallback_init")
-            # logging.debug("TrialEvalCallback__init")
 
         def _on_step(self) -> bool:
-            # logging.debug("TrialEvalCallback___on_step0")
-
             if self.eval_freq > 0 and self.n_calls % self.eval_freq == 0:
-                # logging.debug("TrialEvalCallback___on_step1")
-                # new:
-                # logging.debug("TrialEvalCallback___env reset")
-                print("_on_step if clause start")
-                self.train_env.reset()
-                time.sleep(3)
-                print("train_env.reset() in _on_step() function")
                 super()._on_step()
                 self.eval_idx += 1
                 self.trial.report(self.last_mean_reward, self.eval_idx)
@@ -221,15 +182,14 @@ class PPO_Optuna:
 
         def __init__(
             self,
-            eval_env: gym.Env,  #:param eval_env: The environment used for initialization
+            eval_env: gym.Env,
             trial: optuna.Trial,
             n_eval_episodes: int,
             eval_freq: int,
             deterministic: bool = True,
             verbose: int = 1,
             best_model_save_path_in: str = "input path - best_model_save_path",
-            # GHKVD 21062022: added to store best model
-            log_path_in: str = "input path - log_path ",  # GHKVD 21062022: added to store evaluation results
+            log_path_in: str = "input path - log_path ",
         ):
             super().__init__(
                 eval_env=eval_env,
@@ -241,36 +201,20 @@ class PPO_Optuna:
                 log_path=log_path_in,
             )
             self.trial = trial
-
             self.eval_idx = 0
             self.is_pruned = False
-            print("TrialEvalCallback_init")
-            # logging.debug("TrialEvalCallback__init")
 
         def _on_step(self) -> bool:
-            # logging.debug("TrialEvalCallback___on_step0")
-
             if self.eval_freq > 0 and self.n_calls % self.eval_freq == 0:
-                # logging.debug("TrialEvalCallback___on_step1")
-                # new:
-                # logging.debug("TrialEvalCallback___env reset")
-                print("_on_step if clause start")
-
-                self.train_env.reset()
-                time.sleep(3)
-                print("train_env.reset() in _on_step() function")
                 super()._on_step()
                 self.eval_idx += 1
                 self.trial.report(self.last_mean_reward, self.eval_idx)
                 print("self.last_mean_reward: ", self.last_mean_reward)
                 # Prune trial if need
                 if self.trial.should_prune():
-                    # logging.debug("TrialEvalCallback___on_step2")
                     self.is_pruned = True
                     print("Trial pruned!")
                     return False
-            # logging.debug("TrialEvalCallback___on_step3")
-            # print("Trial not pruned!")
             return True
 
     def objective(self, trial: optuna.Trial) -> float:
@@ -445,6 +389,13 @@ class PPO_Optuna:
 
 class PPO_Manual_Parameters:
     def __init__(self, study):
+        self.initialize_global_variables(study)
+        self.N_EVALUATIONS = self.N_TIMESTEPS / 1000  # evaluations
+        self.EVAL_FREQ = int(self.N_TIMESTEPS / self.N_EVALUATIONS)
+        self.N_EVAL_EPISODES = 10
+
+    def initialize_global_variables(self, study):
+        self.N_TIMESTEPS = study.N_TIMESTEPS  # for every trial
         self.ORDERS = study.ORDERS
         self.CHANGEOVER = study.CHANGEOVER
         self.recreate_solution = study.recreate_solution
@@ -458,20 +409,14 @@ class PPO_Manual_Parameters:
         self.obs_size = study.obs_size
         self.action_space = study.action_space
         self.buffer_usage = study.buffer_usage
-        self.N_TIMESTEPS = study.N_TIMESTEPS
         self.experiment_date = study.experiment_date
         self.experiment_time = study.experiment_time
         self.config = study.config
         self.log_path = study.log_path
         self.best_model_save_path = study.best_model_save_path
-        self.N_EVALUATIONS = self.N_TIMESTEPS / 1000  # evaluations
-        self.EVAL_FREQ = int(self.N_TIMESTEPS / self.N_EVALUATIONS)
-        self.N_EVAL_EPISODES = 10
-        env, train_env, eval_env, test_env = WrappingEnvironments(study)
-        self.env = env
-        self.train_env = train_env
-        self.eval_env = eval_env
-        self.test_env = test_env
+        self.train_env = make_environment(study, "_training")
+        self.eval_env = make_environment(study, "_evaluation")
+        self.test_env = make_environment(study, "_testing")
 
     def linear_schedule(
         self, initial_value: Union[float, str]
@@ -623,7 +568,10 @@ class PPO_Manual_Parameters:
 class PPO_Test_Trained:
     def __init__(self, study):
         self.use_trained_with_solution = False
+        self.initialize_global_variables(study)
 
+    def initialize_global_variables(self, study):
+        self.N_TIMESTEPS = study.N_TIMESTEPS  # for every trial
         self.ORDERS = study.ORDERS
         self.CHANGEOVER = study.CHANGEOVER
         self.recreate_solution = study.recreate_solution
@@ -637,17 +585,14 @@ class PPO_Test_Trained:
         self.obs_size = study.obs_size
         self.action_space = study.action_space
         self.buffer_usage = study.buffer_usage
-        self.N_TIMESTEPS = study.N_TIMESTEPS
         self.experiment_date = study.experiment_date
         self.experiment_time = study.experiment_time
         self.config = study.config
         self.log_path = study.log_path
         self.best_model_save_path = study.best_model_save_path
-        env, train_env, eval_env, test_env = WrappingEnvironments(study)
-        self.env = env
-        self.train_env = train_env
-        self.eval_env = eval_env
-        self.test_env = test_env
+        self.train_env = make_environment(study, "_training")
+        self.eval_env = make_environment(study, "_evaluation")
+        self.test_env = make_environment(study, "_testing")
 
     def PPO_Test_Trained_Run(self):
         if self.use_trained_with_solution:
@@ -661,7 +606,7 @@ class PPO_Test_Trained:
             model = PPO.load(model_to_load)
 
         print("loaded model")
-        model.set_env(test_env)
+        model.set_env(self.test_env)
         print("set env model")
 
         model.env.reset()
@@ -692,6 +637,12 @@ class PPO_Test_Trained:
 
 class PPO_Simple_Run:
     def __init__(self, study):
+        self.initialize_global_variables(study)
+        self.terminated_makespan = {key: [] for key in range(self.N_TEST_EPISODES)}
+        self.terminated_occ = {key: [] for key in range(self.N_TEST_EPISODES)}
+        self.terminated_wl = {key: [] for key in range(self.N_TEST_EPISODES)}
+
+    def initialize_global_variables(self, study):
         self.N_TEST_EPISODES = study.N_TIMESTEPS
         self.ORDERS = study.ORDERS
         self.CHANGEOVER = study.CHANGEOVER
@@ -711,14 +662,7 @@ class PPO_Simple_Run:
         self.config = study.config
         self.log_path = study.log_path
         self.best_model_save_path = study.best_model_save_path
-        self.terminated_makespan = {key: [] for key in range(self.N_TEST_EPISODES)}
-        self.terminated_occ = {key: [] for key in range(self.N_TEST_EPISODES)}
-        self.terminated_wl = {key: [] for key in range(self.N_TEST_EPISODES)}
-        env, train_env, eval_env, test_env = WrappingEnvironments(study)
-        self.env = env
-        self.train_env = train_env
-        self.eval_env = eval_env
-        self.test_env = test_env
+        self.env = flexible_flow_shop(study)
 
     def PPO_Simple_Run_run(self):
         for episode in range(self.N_TEST_EPISODES):

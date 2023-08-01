@@ -10,7 +10,7 @@
 # config.yaml
 
 params:
-  - N_TIMESTEPS: 10
+  - N_TIMESTEPS: 10000
     seed: 0
     masking: True
     reward: OCC
@@ -21,6 +21,6 @@ params:
     action_space: discrete_probs
     solution_hints: None
     products_number: 30
-    generate_heuristic_schedules: FIFO
+    generate_heuristic_schedules: None
     recreate_solution: None
     test: ppo_manual

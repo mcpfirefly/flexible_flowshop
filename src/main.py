@@ -10,6 +10,10 @@ from experiments.experiments import (
 
 @hydra.main(config_path="../conf", config_name="config", version_base=None)
 def main(cfg: object) -> object:
+    """
+
+    :rtype: object
+    """
     for key, value in cfg.params[0].items():
         if value == "None":
             cfg.params[0][key] = None
