@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/Model_based_RL_MCPF.iml" filepath="$PROJECT_DIR$/.idea/Model_based_RL_MCPF.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/flexible_flowshop.iml" filepath="$PROJECT_DIR$/.idea/flexible_flowshop.iml" />
     </modules>
   </component>
 </project>

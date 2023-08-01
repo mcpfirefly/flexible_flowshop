@@ -4,18 +4,6 @@ import simpy
 
 from custom_plotters.gantt_plotter.GanttPlotter import GanttJob, GanttPlotter, JobTypes
 from flexible_flow_shop.resources.functions.class_objects import Factory, Order
-from flexible_flow_shop.resources.functions.global_variables import PROCESSING_TIMES
-from flexible_flow_shop.resources.functions.global_variables import MACHINES
-from flexible_flow_shop.resources.functions.global_variables import BUFFERS
-from flexible_flow_shop.resources.functions.global_variables import RESOURCES
-from flexible_flow_shop.resources.functions.global_variables import STAGES
-from flexible_flow_shop.resources.functions.global_variables import CHANGEOVER
-from flexible_flow_shop.resources.functions.global_variables import ORDERS
-from flexible_flow_shop.resources.functions.global_variables import JOBS
-from flexible_flow_shop.resources.functions.global_variables import IMPACT_FACTORS
-from flexible_flow_shop.resources.functions.global_variables import N_OPERATIONS
-from flexible_flow_shop.resources.functions.global_variables import TOTAL_JOBS_PER_STAGE
-from flexible_flow_shop.resources.functions.global_variables import INDEX_MACHINES
 from flexible_flow_shop.resources.functions.scheduling_functions import (generate_results)
 from flexible_flow_shop.resources.functions.scheduling_functions import (processing_times)
 from flexible_flow_shop.resources.functions.scheduling_functions import (changeover_times)
@@ -30,17 +18,14 @@ from flexible_flow_shop.resources.functions.scheduling_functions import assign_p
 from flexible_flow_shop.resources.functions.scheduling_functions import disable_operations_of_same_job_in_same_stage
 from flexible_flow_shop.resources.functions.scheduling_functions import set_time_machines_idle
 from flexible_flow_shop.resources.functions.scheduling_functions import legalize_with_release_dates, GeneratePreliminaryHeuristicResultsFiles
-from main import buffer_usage,time_in_buffer_custom,workbook,generate_heuristic_schedules, action_space, reward,test, experiment_folder
 from gym.spaces import Discrete
 
-if generate_heuristic_schedules != None:
-    MAX_QUEUE_SIZE = np.inf
-else:
-    MAX_QUEUE_SIZE = 1
+
 
 class flexible_flow_shop(gym.Env):
-    def __init__(self):
+    def __init__(self,study):
         super().__init__()
+        self.study = study
         self.observation_space = Discrete(1)
         self.action_space = Discrete(1)
         self.reset()
@@ -50,15 +35,15 @@ class flexible_flow_shop(gym.Env):
         """Function that initializes the environment state and returns the initial self.observation"""
 
         self.env = simpy.Environment()
-        self.factory = Factory(self.env)
+        self.factory = Factory(self.study,self.env)
         self.terminated = False
         self.truncated = False
         self.done = False
         self.total_reward = 0
         self.schedule = []
         self.orders = [
-            Order(self.env, row.operation_id, row.order_id, row.machine, row.machine_id, row.product_code,
-                  row.stage, row.valid) for _, row in ORDERS.iterrows()]
+            Order(self.study,self.env, row.operation_id, row.order_id, row.machine, row.machine_id, row.product_code,
+                  row.stage, row.valid) for _, row in self.study.ORDERS.iterrows()]
         self.num_steps = 0
         self.all_changeover_costs = np.array(0, dtype=np.float)
         self.weighted_total_lateness = 0
@@ -67,48 +52,48 @@ class flexible_flow_shop(gym.Env):
             self.orders]
         self.legal_operations.append(False)
         self.legal_operations = np.array(self.legal_operations)
-        self.history_default_changeover = np.zeros(N_OPERATIONS)
-        self.legal_jobs = np.array([True for product in JOBS], dtype=np.int)
-        self.time_until_job_done = np.zeros(len(JOBS), dtype=np.float)
-        self.time_until_operation_done = np.zeros((N_OPERATIONS), dtype=np.float)
-        self.jobs_completion = np.zeros(len(JOBS), dtype=np.float)
-        self.operations_completion = np.zeros((N_OPERATIONS), dtype=np.int)
-        self.time_until_machine_free = np.zeros(len(MACHINES),
+        self.history_default_changeover = np.zeros(self.study.N_OPERATIONS)
+        self.legal_jobs = np.array([True for product in self.study.JOBS], dtype=np.int)
+        self.time_until_job_done = np.zeros(len(self.study.JOBS), dtype=np.float)
+        self.time_until_operation_done = np.zeros((self.study.N_OPERATIONS), dtype=np.float)
+        self.jobs_completion = np.zeros(len(self.study.JOBS), dtype=np.float)
+        self.operations_completion = np.zeros((self.study.N_OPERATIONS), dtype=np.int)
+        self.time_until_machine_free = np.zeros(len(self.study.MACHINES),
                                                 dtype=np.float)  # I consider the remaining changeovers
-        self.operation_waiting_time = np.zeros((N_OPERATIONS), dtype=np.float)
-        self.time_left_previous_stage = np.zeros(len(JOBS), dtype=np.float)
+        self.operation_waiting_time = np.zeros((self.study.N_OPERATIONS), dtype=np.float)
+        self.time_left_previous_stage = np.zeros(len(self.study.JOBS), dtype=np.float)
         self.total_current_idle_time = 0
         self.total_past_idle_time = 0
         # To store preceeding orders for changeover calculations
         self.historical_selection = {}
-        for i, machine_id in enumerate(MACHINES):
+        for i, machine_id in enumerate(self.study.MACHINES):
             self.historical_selection[machine_id] = []
         self.timestep = 0
-        self.counter_historical_selection = {key: 0 for key in MACHINES}
+        self.counter_historical_selection = {key: 0 for key in self.study.MACHINES}
         self.TASK_LIST = list()
         self.no_operation_active = 0
-        self.current_operation_in_machine = np.zeros(len(MACHINES), dtype=np.int)  # no_operation
-        self.next_operation_in_machine = np.zeros(len(MACHINES), dtype=np.int)  # no_operation
-        self.stage_operations = np.zeros(N_OPERATIONS)
-        self.stage_jobs = np.zeros(len(JOBS))
-        self.job_processing_time = np.zeros(len(JOBS), dtype=np.float)
-        self.operation_processing_time = np.zeros((N_OPERATIONS), dtype=np.float)
-        self.job_changeover_time = np.zeros(len(JOBS), dtype=np.float)
-        self.operation_changeover_time = np.zeros((N_OPERATIONS), dtype=np.float)
-        self.job_waiting_time = np.zeros(len(JOBS), dtype=np.float)
-        self.legal_machines = np.ones(len(MACHINES), dtype=np.int)
+        self.current_operation_in_machine = np.zeros(len(self.study.MACHINES), dtype=np.int)  # no_operation
+        self.next_operation_in_machine = np.zeros(len(self.study.MACHINES), dtype=np.int)  # no_operation
+        self.stage_operations = np.zeros(self.study.N_OPERATIONS)
+        self.stage_jobs = np.zeros(len(self.study.JOBS))
+        self.job_processing_time = np.zeros(len(self.study.JOBS), dtype=np.float)
+        self.operation_processing_time = np.zeros((self.study.N_OPERATIONS), dtype=np.float)
+        self.job_changeover_time = np.zeros(len(self.study.JOBS), dtype=np.float)
+        self.operation_changeover_time = np.zeros((self.study.N_OPERATIONS), dtype=np.float)
+        self.job_waiting_time = np.zeros(len(self.study.JOBS), dtype=np.float)
+        self.legal_machines = np.ones(len(self.study.MACHINES), dtype=np.int)
         self.counter = 0
-        self.scheduled_operations = np.zeros((N_OPERATIONS), dtype=np.int)
-        self.scheduled_jobs = np.zeros(N_OPERATIONS, dtype=np.int)
-        self.scheduled_machines = np.zeros((N_OPERATIONS), dtype=np.int)
-        self.stages_queue_size = np.zeros(len(STAGES), dtype=np.int)
-        self.stage_progression = np.zeros(len(STAGES), dtype=np.float)
-        self.machines_idle = [[0, 0] for i in range(len(MACHINES))]  # (active machine boolean,idle_time)
-        self.time_machines_idle = np.zeros(len(MACHINES), dtype=np.float)
+        self.scheduled_operations = np.zeros((self.study.N_OPERATIONS), dtype=np.int)
+        self.scheduled_jobs = np.zeros(self.study.N_OPERATIONS, dtype=np.int)
+        self.scheduled_machines = np.zeros((self.study.N_OPERATIONS), dtype=np.int)
+        self.stages_queue_size = np.zeros(len(self.study.STAGES), dtype=np.int)
+        self.stage_progression = np.zeros(len(self.study.STAGES), dtype=np.float)
+        self.machines_idle = [[0, 0] for i in range(len(self.study.MACHINES))]  # (active machine boolean,idle_time)
+        self.time_machines_idle = np.zeros(len(self.study.MACHINES), dtype=np.float)
         self.completion_score = np.array(0, dtype=np.float)
         self.sim_duration = 0  # small positive constant to avoid issues when dividing over makespan
         self.oc_costs = 0
-        self.machine_queue = {key: 0 for key in MACHINES}
+        self.machine_queue = {key: 0 for key in self.study.MACHINES}
         self.reward = 0
         machines_to_select = []
         self.cumulative_changeover = 0
@@ -126,16 +111,16 @@ class flexible_flow_shop(gym.Env):
         self.episode_length_past = 0
         self.job_completion_current = 0
         self.job_completion_past = 0
-        self.legal_machines_per_stage = [self.legal_machines[i] for i in INDEX_MACHINES]
-        self.history_buffer = [[] for i in STAGES]
-        self.past_product_in_buffer = [[] for i in STAGES]
-        self.current_product_in_buffer = [[] for i in STAGES]
-        self.original_history = [[] for i in STAGES]
+        self.legal_machines_per_stage = [self.legal_machines[i] for i in self.study.INDEX_MACHINES]
+        self.history_buffer = [[] for i in self.study.STAGES]
+        self.past_product_in_buffer = [[] for i in self.study.STAGES]
+        self.current_product_in_buffer = [[] for i in self.study.STAGES]
+        self.original_history = [[] for i in self.study.STAGES]
         self.list_of_reamining_times = []
         self.remaining_time = 0
-        self.current_product_in_machine = [[] for i in MACHINES]
-        self.heuristics_products_per_stage = [[] for i in STAGES]
-        self.counter_positions_heuristics = [0 for i in STAGES]
+        self.current_product_in_machine = [[] for i in self.study.MACHINES]
+        self.heuristics_products_per_stage = [[] for i in self.study.STAGES]
+        self.counter_positions_heuristics = [0 for i in self.study.STAGES]
         self.heuristics_solution = []
 
         return self._get_observation()
@@ -147,7 +132,7 @@ class flexible_flow_shop(gym.Env):
         else:
             self.legal_operations[-1] = True
 
-        if buffer_usage=="agent_decides":
+        if self.study.buffer_usage=="agent_decides":
             mask = []
             mask_use_buffer = np.ones(2) # [0, 1]
             mask_time_in_buffer = [np.zeros(1),np.ones(5)] #[0, 1, 2, 3, 4, 5]
@@ -178,27 +163,27 @@ class flexible_flow_shop(gym.Env):
             self.sim_duration = env.now
 
         update_time_arrays(self)
-        self.completion_score = (sum(self.jobs_completion))/len(JOBS) #ratio between jobs progression and number of jobs
+        self.completion_score = (sum(self.jobs_completion))/len(self.study.JOBS) #ratio between jobs progression and number of jobs
         set_time_machines_idle(self)
         legalize_with_release_dates(self)
 
-        if self.legal_operations[action] and action != len(ORDERS):
+        if self.legal_operations[action] and action != len(self.study.ORDERS):
             order = self.orders[action]
 
-            if action_space == "continuous":
+            if self.action_space == "continuous":
                 self.reward = 1
 
-            if buffer_usage != "no_buffers" and order.stage > 0:
+            if self.study.buffer_usage != "no_buffers" and order.stage > 0:
                 buffer_stage = order.stage - 1
-                if buffer_usage == "random":
+                if self.study.buffer_usage == "random":
                     go_to_buffer = np.random.randint(2)
-                    order.time_in_buffer = time_in_buffer_custom
-                elif buffer_usage == "agent_decides":
+                    order.time_in_buffer = self.study.time_in_buffer_custom
+                elif self.study.buffer_usage == "agent_decides":
                     go_to_buffer = order.go_to_buffer
                     order.time_in_buffer = order.time_in_buffer
-                elif buffer_usage == "always_buffers":
+                elif self.study.buffer_usage == "always_buffers":
                     go_to_buffer = 1
-                    order.time_in_buffer = time_in_buffer_custom
+                    order.time_in_buffer = self.study.time_in_buffer_custom
 
                 if go_to_buffer and order.visited_buffer == False:
                     if len(self.factory.buffer[buffer_stage].users) == 0 or (
@@ -234,7 +219,7 @@ class flexible_flow_shop(gym.Env):
                                     buffer_changeover_object = GanttJob(
                                         past_order.time_end_block,
                                         order.buffer_changeover,
-                                        BUFFERS[buffer_stage],
+                                        self.study.BUFFERS[buffer_stage],
                                         "CHANGEOVER",
                                         job_type=JobTypes.CHANGEOVER,
                                     )
@@ -263,7 +248,7 @@ class flexible_flow_shop(gym.Env):
                             buffer_task_object = GanttJob(
                                 order.time_start_buffer,
                                 order.time_in_buffer,
-                                BUFFERS[buffer_stage],
+                                self.study.BUFFERS[buffer_stage],
                                 order.product_code,
                                 job_type=JobTypes.PROCESS,
                             )
@@ -287,7 +272,7 @@ class flexible_flow_shop(gym.Env):
                                     buffer_block_task_object = GanttJob(
                                     order.time_start_block,
                                     block_duration,
-                                    BUFFERS[buffer_stage],
+                                    self.study.BUFFERS[buffer_stage],
                                     "blocking",
                                     job_type=JobTypes.BLOCKING,
                                     )
@@ -295,8 +280,13 @@ class flexible_flow_shop(gym.Env):
 
                             yield self.factory.buffer[buffer_stage].release(request)
 
+            if self.study.generate_heuristic_schedules != None:
+                MAX_QUEUE_SIZE = np.inf
+            else:
+                MAX_QUEUE_SIZE = 1
+
             if self.machine_queue[order.machine] < MAX_QUEUE_SIZE:
-                assign_position_in_schedule(self, order, N_OPERATIONS, MACHINES)
+                assign_position_in_schedule(self, order, self.study.N_OPERATIONS, self.study.MACHINES)
                 disable_operations_of_same_job_in_same_stage(self, order)
                 self.no_operation_active = 0
                 order.scheduled_by_agent = 1
@@ -305,7 +295,7 @@ class flexible_flow_shop(gym.Env):
 
                 ########## START #############
                 i = order.stage
-                if generate_heuristic_schedules != None:
+                if self.study.generate_heuristic_schedules != None:
                     order.position_heuristics = self.counter_positions_heuristics[i]
                     self.counter_positions_heuristics[i] += 1
 
@@ -331,8 +321,8 @@ class flexible_flow_shop(gym.Env):
                     yield request
                     self.legal_machines[order.machine_id] = 0
                     self.machine_queue[order.machine] -= 1
-                    self.stage_progression[i] += 1 / (TOTAL_JOBS_PER_STAGE[i])
-                    self.stages_queue_size = [len(self.factory.stage[i].get_queue) for i in range(len(STAGES))]
+                    self.stage_progression[i] += 1 / (self.study.TOTAL_JOBS_PER_STAGE[i])
+                    self.stages_queue_size = [len(self.factory.stage[i].get_queue) for i in range(len(self.study.STAGES))]
 
                     order.machine = request.value
                     self.machines_idle[order.machine_id] = [1,0]
@@ -357,7 +347,7 @@ class flexible_flow_shop(gym.Env):
                     #    self.job_waiting_time[order.order_id] += self.operation_waiting_time[order.position_in_schedule]
                     #print("{} waited {} in queue to enter stage {}.".format(order.product_code, order.waiting_value, stage))
                     #print("{} starts processing in machine {} at {}.".format(order.product_code,order.machine,order.time_start_process))
-                    process_time = processing_times(self, env, PROCESSING_TIMES, order, order.machine_id)
+                    process_time = processing_times(self, env, self.study.PROCESSING_TIMES, order, order.machine_id)
                     yield env.timeout(process_time)
 
                     self.operations_completion[order.position_in_schedule] = 1
@@ -381,10 +371,10 @@ class flexible_flow_shop(gym.Env):
 
                     # When the order finishes processing in the machine, flag the next order's operation
                     # in the following stage as legal, and also the "global" flag of the order as legal.
-                    order.next_stage = get_orders_next_stage(self, order, STAGES)
+                    order.next_stage = get_orders_next_stage(self, order, self.study.STAGES)
 
-                    if generate_heuristic_schedules == "FIFO" and order.stage != len(STAGES) - 1:
-                        if order.position_heuristics > self.counter_positions_heuristics[order.next_stage] and order.next_stage != len(STAGES)-1 and TOTAL_JOBS_PER_STAGE[order.next_stage] != len(JOBS):
+                    if self.study.generate_heuristic_schedules == "FIFO" and order.stage != len(self.study.STAGES) - 1:
+                        if order.position_heuristics > self.counter_positions_heuristics[order.next_stage] and order.next_stage != len(self.study.STAGES)-1 and self.study.TOTAL_JOBS_PER_STAGE[order.next_stage] != len(self.study.JOBS):
                             while order.position_heuristics > self.counter_positions_heuristics[order.next_stage+1]:
                                 yield env.timeout(0.001)
                             self.counter_positions_heuristics[order.next_stage] = order.position_heuristics
@@ -392,7 +382,7 @@ class flexible_flow_shop(gym.Env):
                             yield env.timeout(0.001)
 
                     #arrays of legal operations in stage 0
-                    flag_as_legals_in_next_stage(self, order, STAGES)
+                    flag_as_legals_in_next_stage(self, order, self.study.STAGES)
                     #if order finished its processing in the last stage
                     if (np.around(self.jobs_completion[order.order_id] * order.total_stages, 2) == order.total_stages):
                         self.factory.finished_orders.append(order.order_id)
@@ -410,7 +400,7 @@ class flexible_flow_shop(gym.Env):
                     #####Changeover######
 
                     # STAGE 1 has no changeovers.
-                    if workbook == "kopanos":
+                    if self.study.workbook == "kopanos":
                         changeover_condition = order.stage != 0 and np.around(self.stage_progression[i], 3) != 1
                     else:
                         changeover_condition = np.around(self.stage_progression[i], 3) != 1
@@ -434,8 +424,8 @@ class flexible_flow_shop(gym.Env):
                         next_order = self.orders[next_order_id]
                         self.next_operation_in_machine[order.machine_id] = next_order.operation_id
                         order.next_order = next_order.product_code
-                        order.impact_factor_value = get_impact_factor(IMPACT_FACTORS, order, next_order)
-                        order.changeover_value = changeover_times(self, env, CHANGEOVER[i], order, next_order)
+                        order.impact_factor_value = get_impact_factor(self.study.IMPACT_FACTORS, order, next_order)
+                        order.changeover_value = changeover_times(self, env, self.study.CHANGEOVER[i], order, next_order)
 
                         # In case there is still a remaining changeover time, apply:
                         if (order.changeover_value > self.history_default_changeover[order.position_in_schedule]):
@@ -475,7 +465,7 @@ class flexible_flow_shop(gym.Env):
         """Function that sends an action to the scheduling function described above
         and receives the self.observation, self.reward, terminated and truncated signals."""
 
-        if action_space == "continuous" and not(self.legal_operations[action]):
+        if self.action_space == "continuous" and not(self.legal_operations[action]):
             self.episode_length += 1
 
             if self.finished_orders.all() or np.round(self.completion_score,5) == 1.0:
@@ -531,13 +521,13 @@ class flexible_flow_shop(gym.Env):
             self.wl_reward = -(np.around(self.wl_current,4) - np.around(self.wl_past,4))
             self.length_reward = -(np.around(self.episode_length_current,4) - np.around(self.episode_length_past,4))
 
-            if reward == "MAKESPAN":
+            if self.study.reward == "MAKESPAN":
                 self.total_reward += self.makespan_reward + self.reward
-            elif reward == "OCC":
+            elif self.study.reward == "OCC":
                 self.total_reward += self.occ_reward + self.reward
-            elif reward == "WL":
+            elif self.study.reward == "WL":
                 self.total_reward += self.wl_reward + self.reward
-            elif reward == "LENGTH":
+            elif self.study.reward == "LENGTH":
                 self.total_reward += self.length_reward + self.reward
 
             info = {"sim_duration": self.sim_duration,
@@ -586,9 +576,9 @@ class flexible_flow_shop(gym.Env):
             return self._get_observation(), self.reward, self.done, info
 
     def _get_observation(self):
-        self.legal_machines_per_stage = [self.legal_machines[i] for i in INDEX_MACHINES]
-        self.finished_orders_index = [i for i, e in enumerate(JOBS) if e in set(self.factory.finished_orders)]
-        self.finished_orders = np.in1d(range(len(JOBS)), self.finished_orders_index)
+        self.legal_machines_per_stage = [self.legal_machines[i] for i in self.study.INDEX_MACHINES]
+        self.finished_orders_index = [i for i, e in enumerate(self.study.JOBS) if e in set(self.factory.finished_orders)]
+        self.finished_orders = np.in1d(range(len(self.study.JOBS)), self.finished_orders_index)
         self.oc_costs = self.sim_duration * 0.9 + self.all_changeover_costs
         self.machine_queue_list = list(self.machine_queue.values())
         self.observation = 0
@@ -598,7 +588,7 @@ class flexible_flow_shop(gym.Env):
         """Function that generates the Gantt Chart which is automatically saved in disk
         and generates the results in an excel workbook"""
         my_plotter = GanttPlotter(
-            resources=RESOURCES,
+            resources=self.study.RESOURCES,
             jobs=self.TASK_LIST,
             xticks_step_size=8,
             xticks_max_value= float(np.around(self.sim_duration,3))
@@ -609,9 +599,9 @@ class flexible_flow_shop(gym.Env):
         episode_wl = np.around(self.weighted_total_lateness,3)
 
 
-        results_path = "outputs/{}/{}/render".format(experiment_folder,test)
-        if generate_heuristic_schedules != None:
-            filename_gantt="{}/{}_Mks_{}_OCC_{}_WL_{}_GanttPlot.png".format(results_path,generate_heuristic_schedules,episode_makespan,episode_oc_costs,episode_wl)
+        results_path = "outputs/{}/{}/render".format(self.study.experiment_folder,self.study.test)
+        if self.study.generate_heuristic_schedules != None:
+            filename_gantt="{}/{}_Mks_{}_OCC_{}_WL_{}_GanttPlot.png".format(results_path,self.study.generate_heuristic_schedules,episode_makespan,episode_oc_costs,episode_wl)
         else:
             filename_gantt="{}/Mks_{}_OCC_{}_WL_{}_GanttPlot.png".format(results_path,episode_makespan,episode_oc_costs,episode_wl)
 
@@ -626,23 +616,23 @@ class flexible_flow_shop(gym.Env):
         filename=filename_gantt)
 
         #my_plotter.show_gantt()
-        generate_results(self.orders,ORDERS,episode_makespan,self.factory.finished_orders,generate_heuristic_schedules,test,experiment_folder)
+        generate_results(self.orders,self.study.ORDERS,episode_makespan,self.factory.finished_orders,self.study.generate_heuristic_schedules,self.study.test,self.study.experiment_folder)
 
-        if generate_heuristic_schedules != None:
-            GeneratePreliminaryHeuristicResultsFiles(self,results_path,generate_heuristic_schedules,episode_makespan,episode_oc_costs,episode_wl)
+        if self.study.generate_heuristic_schedules != None:
+            GeneratePreliminaryHeuristicResultsFiles(self,results_path,self.study.generate_heuristic_schedules,episode_makespan,episode_oc_costs,episode_wl)
 
     def _get_product_number(self,probability):
-        item_number = int(probability * len(JOBS))  # Multiply by the total number of items
-        return min(item_number,  (len(JOBS)-1) ) # Cap the item number at 29 (total items - 1)
+        item_number = int(probability * len(self.study.JOBS))  # Multiply by the total number of items
+        return min(item_number,  (len(self.study.JOBS)-1) ) # Cap the item number at 29 (total items - 1)
     def _get_machine_number(self,probability):
-        item_number = int(probability * len(MACHINES))  # Multiply by the total number of items
-        return min(item_number, (len(MACHINES)-1))  # Cap the item number at 16 (total items - 1)
+        item_number = int(probability * len(self.study.MACHINES))  # Multiply by the total number of items
+        return min(item_number, (len(self.study.MACHINES)-1))  # Cap the item number at 16 (total items - 1)
 
     def _observations_big(self):
         # finished orders list
-        self.legal_machines_per_stage = [self.legal_machines[i] for i in INDEX_MACHINES]
-        self.finished_orders_index = [i for i, e in enumerate(JOBS) if e in set(self.factory.finished_orders)]
-        self.finished_orders = np.in1d(range(len(JOBS)), self.finished_orders_index)
+        self.legal_machines_per_stage = [self.legal_machines[i] for i in self.study.INDEX_MACHINES]
+        self.finished_orders_index = [i for i, e in enumerate(self.study.JOBS) if e in set(self.factory.finished_orders)]
+        self.finished_orders = np.in1d(range(len(self.study.JOBS)), self.finished_orders_index)
         self.machine_queue_list = list(self.machine_queue.values())
         observation = []
         # global_schedule_observations
@@ -687,9 +677,9 @@ class flexible_flow_shop(gym.Env):
 
 
         # finished orders list
-        self.legal_machines_per_stage = [self.legal_machines[i] for i in INDEX_MACHINES]
-        self.finished_orders_index = [i for i, e in enumerate(JOBS) if e in set(self.factory.finished_orders)]
-        self.finished_orders = np.in1d(range(len(JOBS)), self.finished_orders_index)
+        self.legal_machines_per_stage = [self.legal_machines[i] for i in self.study.INDEX_MACHINES]
+        self.finished_orders_index = [i for i, e in enumerate(self.study.JOBS) if e in set(self.factory.finished_orders)]
+        self.finished_orders = np.in1d(range(len(self.study.JOBS)), self.finished_orders_index)
         self.machine_queue_list = list(self.machine_queue.values())
 
         observation = []
@@ -727,9 +717,9 @@ class flexible_flow_shop(gym.Env):
 
 
         # finished orders list
-        self.legal_machines_per_stage = [self.legal_machines[i] for i in INDEX_MACHINES]
-        self.finished_orders_index = [i for i, e in enumerate(JOBS) if e in set(self.factory.finished_orders)]
-        self.finished_orders = np.in1d(range(len(JOBS)), self.finished_orders_index)
+        self.legal_machines_per_stage = [self.legal_machines[i] for i in self.study.INDEX_MACHINES]
+        self.finished_orders_index = [i for i, e in enumerate(self.study.JOBS) if e in set(self.factory.finished_orders)]
+        self.finished_orders = np.in1d(range(len(self.study.JOBS)), self.finished_orders_index)
         self.machine_queue_list = list(self.machine_queue.values())
 
         observation = []

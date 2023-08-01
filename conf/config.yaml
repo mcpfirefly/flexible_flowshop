@@ -2,7 +2,7 @@
 #   action_space_types = {discrete, discrete_probs, continuous}
 #   rewards = {OCC, MAKESPAN, WL, LENGTH, COMPLETION}
 #   obs_sizes = {small, medium, big}
-#   kopanos_products_number = {30, 60}
+#   products_number = {30, 60}
 #   buffer_usages = {no_buffers, always_buffers, random, agent_decides}
 #   heuristics = {None, FIFO, EDD, SPT, SCT}
 #   solutions = {None, FIFO, EDD, SPT, SCT, kopanos}
@@ -20,7 +20,7 @@ params:
     obs_size: big
     action_space: discrete_probs
     solution_hints: None
-    kopanos_products: 30
+    products_number: 30
     generate_heuristic_schedules: FIFO
     recreate_solution: None
-    test: simple_run
+    test: ppo_manual

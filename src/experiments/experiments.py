@@ -1,15 +1,12 @@
-
-from main import seed,masking,solution_hints,reward,obs_size,action_space,buffer_usage, N_TIMESTEPS,experiment_date,experiment_time
-from experiments.rl_algorithms.maskable_ppo import MaskablePPO
 from flexible_flow_shop.resources.functions.main_wrapper import MakeEnvironment
+from flexible_flow_shop.environment import flexible_flow_shop
+from experiments.rl_algorithms.maskable_ppo import MaskablePPO
+
 from experiments.rl_algorithms.ppo import PPO
 from flexible_flow_shop.resources.functions.custom_wrappers import CustomMaskableEvalCallback as MaskableEvalCallback
 from flexible_flow_shop.resources.functions.custom_wrappers import CustomEvalCallback as EvalCallback
-
-from main import recreate_solution, generate_heuristic_schedules, test,experiment_folder
-from flexible_flow_shop.resources.functions.global_variables import ORDERS,CHANGEOVER
 from flexible_flow_shop.resources.functions.scheduling_functions import get_action_heuristics,GenerateHeuristicResultsFiles
-from flexible_flow_shop.environment import flexible_flow_shop
+
 from custom_plotters.raincloud_plotter.raincloud_plotter import raincloud_plotter
 
 import pandas as pd
@@ -21,34 +18,65 @@ from optuna.pruners import MedianPruner
 import torch.nn as nn
 from typing import Dict, Any, Union, Callable
 
+def WrappingEnvironments(study):
+    env = flexible_flow_shop(study)
+    train_env = MakeEnvironment(seed=study.seed, env=env, reward=study.reward, masking=study.masking,
+                                     norm_obs=True,
+                                     norm_rew=True,
+                                     action_mode=study.action_space, obs_size=study.obs_size,
+                                     buffer_usage=study.buffer_usage,
+                                     log_path=(study.log_path + "_training"))
+    eval_env = MakeEnvironment(seed=study.seed, env=env, reward=study.reward, masking=study.masking,
+                                    norm_obs=True,
+                                    norm_rew=True,
+                                    action_mode=study.action_space, obs_size=study.obs_size,
+                                    buffer_usage=study.buffer_usage,
+                                    log_path=(study.log_path + "_evaluation"))
 
-##### GLOBAL VARIABLES FOR EXPERIMENTS
-
-log_path = "outputs/{}/{}/Training/Logs".format(experiment_folder, test)
-best_model_save_path = "outputs/{}/{}/Training/Saved_Models".format(experiment_folder, test)
-
-env = flexible_flow_shop()
-train_env = MakeEnvironment(seed=seed, env=env, reward=reward, masking=masking, norm_obs=True, norm_rew=True,
-                            action_mode=action_space, obs_size=obs_size, buffer_usage=buffer_usage,
-                            log_path=(log_path + "_training"))
-eval_env = MakeEnvironment(seed=seed, env=env, reward=reward, masking=masking, norm_obs=True, norm_rew=True,
-                           action_mode=action_space, obs_size=obs_size, buffer_usage=buffer_usage,
-                           log_path=(log_path + "_evaluation"))
-
+    test_env = MakeEnvironment(seed=study.seed, env=env, reward=study.reward, masking=study.masking,
+                                    norm_obs=True,
+                                    norm_rew=True,
+                                    action_mode=study.action_space, obs_size=study.obs_size,
+                                    buffer_usage=study.buffer_usage,
+                                    log_path=(study.log_path + "_testing"))
+    return env, train_env, eval_env, test_env
 
 ##### A CLASS FOR EACH DIFFERENT TEST
 class PPO_Optuna:
-    def __init__(self):
+    def __init__(self, study):
         self.DEVICE = torch.device("cpu")
         self.N_TRIALS = 5
         self.N_STARTUP_TRIALS = 1
-        self.N_TIMESTEPS = N_TIMESTEPS  # for every trial
+        self.N_TIMESTEPS = study.N_TIMESTEPS  # for every trial
         self.N_EVALUATIONS = self.N_TIMESTEPS / 1000  # evaluations per trial
         self.EVAL_FREQ = int(self.N_TIMESTEPS / self.N_EVALUATIONS)
         self.N_EVAL_EPISODES = 10
-        self.optuna_log_path = "outputs/{}/{}/Training/Optuna/Logs".format(experiment_folder, test)
+        env, train_env, eval_env, test_env = WrappingEnvironments(study)
+        self.env = env
+        self.train_env = train_env
+        self.eval_env = eval_env
+        self.test_env = test_env
+        self.ORDERS = study.ORDERS
+        self.CHANGEOVER = study.CHANGEOVER
+        self.recreate_solution = study.recreate_solution
+        self.generate_heuristic_schedules = study.generate_heuristic_schedules
+        self.test = study.test
+        self.experiment_folder = study.experiment_folder
+        self.seed = study.seed
+        self.masking = study.masking
+        self.solution_hints = study.solution_hints
+        self.reward = study.reward
+        self.obs_size = study.obs_size
+        self.action_space = study.action_space
+        self.buffer_usage = study.buffer_usage
+        self.experiment_date = study.experiment_date
+        self.experiment_time = study.experiment_time
+        self.config = study.config
+        self.log_path = study.log_path
+        self.best_model_save_path = study.best_model_save_path
+        self.optuna_log_path = "outputs/{}/{}/Training/Optuna/Logs".format(self.experiment_folder, self.test)
 
-    def linear_schedule(initial_value: Union[float, str]) -> Callable[[float], float]:
+    def linear_schedule(self,initial_value: Union[float, str]) -> Callable[[float], float]:
         if isinstance(initial_value, str):
             initial_value = float(initial_value)
 
@@ -127,7 +155,6 @@ class PPO_Optuna:
                 log_path=log_path_in,
             )
             self.trial = trial
-            eval_env = eval_env
             self.eval_idx = 0
             self.is_pruned = False
             print("TrialEvalCallback_init")
@@ -141,7 +168,7 @@ class PPO_Optuna:
                 # new:
                 # logging.debug("TrialEvalCallback___env reset")
                 print("_on_step if clause start")
-                train_env.reset()
+                self.train_env.reset()
                 time.sleep(3)
                 print("train_env.reset() in _on_step() function")
                 super()._on_step()
@@ -183,7 +210,7 @@ class PPO_Optuna:
                 log_path=log_path_in,
             )
             self.trial = trial
-            eval_env = eval_env
+
             self.eval_idx = 0
             self.is_pruned = False
             print("TrialEvalCallback_init")
@@ -198,7 +225,7 @@ class PPO_Optuna:
                 # logging.debug("TrialEvalCallback___env reset")
                 print("_on_step if clause start")
 
-                train_env.reset()
+                self.train_env.reset()
                 time.sleep(3)
                 print("train_env.reset() in _on_step() function")
                 super()._on_step()
@@ -218,26 +245,26 @@ class PPO_Optuna:
 
         DEFAULT_HYPERPARAMS = {
             "policy": "MlpPolicy",
-            "env": train_env,
+            "env": self.train_env,
             "verbose": 2,
-            "seed": seed,
+            "seed": self.seed,
             "tensorboard_log": self.optuna_log_path
         }
         kwargs = DEFAULT_HYPERPARAMS.copy()
         # Sample hyperparameters
         kwargs.update(self.sample_ppo_hyperparams(trial))
         # Create the RL model
-        if masking and action_space == "discrete":
+        if self.masking and self.action_space == "discrete":
             model = MaskablePPO(**kwargs)
             eval_callback = self.MaskableTrialEvalCallback(
-                eval_env, trial, n_eval_episodes=self.N_EVAL_EPISODES, eval_freq=self.EVAL_FREQ, deterministic=False,
-                best_model_save_path_in=best_model_save_path, log_path_in=self.optuna_log_path,
+                self.eval_env, trial, n_eval_episodes=self.N_EVAL_EPISODES, eval_freq=self.EVAL_FREQ, deterministic=False,
+                best_model_save_path_in=self.best_model_save_path, log_path_in=self.optuna_log_path,
             )
         else:
             model = PPO(**kwargs)
             eval_callback = self.TrialEvalCallback(
-                eval_env, trial, n_eval_episodes=self.N_EVAL_EPISODES, eval_freq=self.EVAL_FREQ, deterministic=False,
-                best_model_save_path_in=best_model_save_path, log_path_in=self.optuna_log_path,
+                self.eval_env, trial, n_eval_episodes=self.N_EVAL_EPISODES, eval_freq=self.EVAL_FREQ, deterministic=False,
+                best_model_save_path_in=self.best_model_save_path, log_path_in=self.optuna_log_path,
             )
         # new trial variables:
         print("new trial, new variables")
@@ -256,8 +283,8 @@ class PPO_Optuna:
             steps_per_iteration = self.N_TIMESTEPS / total_iterations  # steps to be trained per iteration of saving and loading
 
             model.learn(steps_so_far + steps_per_iteration, callback=eval_callback, reset_num_timesteps=False)
-            model.save(best_model_save_path + "model_save")
-            model.save(best_model_save_path + "model_save_" + str(steps_so_far))
+            model.save(self.best_model_save_path + "model_save")
+            model.save(self.best_model_save_path + "model_save_" + str(steps_so_far))
 
             steps_so_far = steps_so_far + steps_per_iteration
             iteration_no = iteration_no + 1
@@ -268,20 +295,20 @@ class PPO_Optuna:
                 print("steps_per_iteration: " + str(steps_per_iteration))
 
                 del model
-                if action_space == "discrete" and masking:
-                    model = MaskablePPO.load(best_model_save_path + "model_save")
+                if self.action_space == "discrete" and self.masking:
+                    model = MaskablePPO.load(self.best_model_save_path + "model_save")
                 else:
-                    model = PPO.load(best_model_save_path + "model_save")
+                    model = PPO.load(self.best_model_save_path + "model_save")
                 print("loaded model")
-                model.set_env(train_env)
+                model.set_env(self.train_env)
                 print("set env model")
 
                 model.env.reset()
                 print("reseted")
                 print("start learning")
                 model.learn(steps_per_iteration, callback=eval_callback, reset_num_timesteps=False)
-                model.save(best_model_save_path + "model_save")
-                model.save(best_model_save_path + "model_save_" + str(steps_so_far))
+                model.save(self.best_model_save_path + "model_save")
+                model.save(self.best_model_save_path + "model_save_" + str(steps_so_far))
                 steps_so_far = steps_so_far + steps_per_iteration
                 iteration_no = iteration_no + 1
 
@@ -296,7 +323,7 @@ class PPO_Optuna:
             print("Close Model and Env!")
 
             model.env.close()
-            eval_env.close()
+            self.eval_env.close()
 
         if nan_encountered:
             # logging.debug("objective___nan")
@@ -318,10 +345,10 @@ class PPO_Optuna:
     def PPO_Optuna_run(self):
         torch.set_num_threads(1)
 
-        sampler = TPESampler(n_startup_trials=self.N_STARTUP_TRIALS, seed=seed)
+        sampler = TPESampler(n_startup_trials=self.N_STARTUP_TRIALS, seed=self.seed)
         pruner = MedianPruner(n_startup_trials=self.N_STARTUP_TRIALS, n_warmup_steps=self.N_TIMESTEPS // 3)
 
-        study = optuna.create_study(storage="sqlite:///outputs/{}/Optuna_Trial.db".format(experiment_folder),
+        study = optuna.create_study(storage="sqlite:///outputs/{}/Optuna_Trial.db".format(self.experiment_folder),
                                     study_name="Optuna_Trial", sampler=sampler, pruner=pruner, direction="maximize")
 
         print("created optuna study")
@@ -351,14 +378,36 @@ class PPO_Optuna:
         for key, value in trial.user_attrs.items():
             print("    {}: {}".format(key, value))
 class PPO_Manual_Parameters:
-    def __init__(self):
-        self.experiment_date = experiment_date
-        self.N_TIMESTEPS = N_TIMESTEPS
+    def __init__(self,study):
+
+        self.ORDERS = study.ORDERS
+        self.CHANGEOVER = study.CHANGEOVER
+        self.recreate_solution = study.recreate_solution
+        self.generate_heuristic_schedules = study.generate_heuristic_schedules
+        self.test = study.test
+        self.experiment_folder = study.experiment_folder
+        self.seed = study.seed
+        self.masking = study.masking
+        self.solution_hints = study.solution_hints
+        self.reward = study.reward
+        self.obs_size = study.obs_size
+        self.action_space = study.action_space
+        self.buffer_usage = study.buffer_usage
+        self.N_TIMESTEPS = study.N_TIMESTEPS
+        self.experiment_date = study.experiment_date
+        self.experiment_time = study.experiment_time
+        self.config = study.config
+        self.log_path = study.log_path
+        self.best_model_save_path = study.best_model_save_path
         self.N_EVALUATIONS = self.N_TIMESTEPS / 1000  # evaluations
         self.EVAL_FREQ = int(self.N_TIMESTEPS / self.N_EVALUATIONS)
         self.N_EVAL_EPISODES = 10
-
-    def linear_schedule(initial_value: Union[float, str]) -> Callable[[float], float]:
+        env, train_env, eval_env, test_env = WrappingEnvironments(study)
+        self.env = env
+        self.train_env = train_env
+        self.eval_env = eval_env
+        self.test_env = test_env
+    def linear_schedule(self,initial_value: Union[float, str]) -> Callable[[float], float]:
         if isinstance(initial_value, str):
             initial_value = float(initial_value)
 
@@ -462,33 +511,33 @@ class PPO_Manual_Parameters:
 
         DEFAULT_HYPERPARAMS = {
             "policy": "MlpPolicy",
-            "env": train_env,
+            "env": self.train_env,
             "verbose": 2,
-            "seed": seed,
-            "tensorboard_log": log_path,
+            "seed": self.seed,
+            "tensorboard_log": self.log_path,
             "policy_kwargs": policy_kwargs,
         }
         kwargs = DEFAULT_HYPERPARAMS.copy()
-        if action_space == "discrete_probs" and solution_hints == "kopanos":
+        if self.action_space == "discrete_probs" and self.solution_hints == "kopanos":
             kwargs.update(self.ppo_hyperparams_discrete_probs())
-        elif action_space == "continuous":
+        elif self.action_space == "continuous":
             kwargs.update(self.ppo_hyperparams_continuous())
-        elif action_space == "discrete":
+        elif self.action_space == "discrete":
             kwargs.update(self.ppo_hyperparams_discrete())
 
-        if masking and action_space == "discrete":
+        if self.masking and self.action_space == "discrete":
             model = MaskablePPO(**kwargs)
-            eval_callback = MaskableEvalCallback(eval_env,
+            eval_callback = MaskableEvalCallback(self.eval_env,
                                                  n_eval_episodes=self.N_EVAL_EPISODES,
                                                  eval_freq=self.EVAL_FREQ,
-                                                 best_model_save_path=best_model_save_path,
+                                                 best_model_save_path=self.best_model_save_path,
                                                  verbose=2)
         else:
             model = PPO(**kwargs)
-            eval_callback = EvalCallback(eval_env,
+            eval_callback = EvalCallback(self.eval_env,
                                          n_eval_episodes=self.N_EVAL_EPISODES,
                                          eval_freq=self.EVAL_FREQ,
-                                         best_model_save_path=best_model_save_path,
+                                         best_model_save_path=self.best_model_save_path,
                                          verbose=2,
                                          deterministic=False)
 
@@ -497,19 +546,41 @@ class PPO_Manual_Parameters:
         model.learn(total_timesteps=self.N_TIMESTEPS, reset_num_timesteps=False, callback=eval_callback)
         print("learning finished")
 class PPO_Test_Trained:
-    def __init__(self):
+    def __init__(self,study):
         self.use_trained_with_solution = False
-        self.N_TEST_EPISODES = N_TIMESTEPS
+
+        self.ORDERS = study.ORDERS
+        self.CHANGEOVER = study.CHANGEOVER
+        self.recreate_solution = study.recreate_solution
+        self.generate_heuristic_schedules = study.generate_heuristic_schedules
+        self.test = study.test
+        self.experiment_folder = study.experiment_folder
+        self.seed = study.seed
+        self.masking = study.masking
+        self.solution_hints = study.solution_hints
+        self.reward = study.reward
+        self.obs_size = study.obs_size
+        self.action_space = study.action_space
+        self.buffer_usage = study.buffer_usage
+        self.N_TIMESTEPS = study.N_TIMESTEPS
+        self.experiment_date = study.experiment_date
+        self.experiment_time = study.experiment_time
+        self.config = study.config
+        self.log_path = study.log_path
+        self.best_model_save_path = study.best_model_save_path
+        env, train_env, eval_env, test_env = WrappingEnvironments(study)
+        self.env = env
+        self.train_env = train_env
+        self.eval_env = eval_env
+        self.test_env = test_env
 
     def PPO_Test_Trained_Run(self):
 
         if self.use_trained_with_solution:
             model_to_load = "TBD"
-        test_env = MakeEnvironment(seed=seed, env=env, reward=reward, masking=masking, norm_obs=True, norm_rew=True,
-                                   action_mode=action_space, obs_size=obs_size, buffer_usage=buffer_usage,
-                                   log_path=(log_path + "_testing"))
 
-        if action_space == "discrete" and masking:
+
+        if self.action_space == "discrete" and self.masking:
             model_to_load = None
             model = MaskablePPO.load(model_to_load)
         else:
@@ -533,21 +604,42 @@ class PPO_Test_Trained:
             score = 0
 
             while not done:
-                if masking and action_space == "discrete":
-                    action, _ = model.predict(obs, action_masks=env.valid_action_mask(), deterministic=True)
+                if self.masking and self.action_space == "discrete":
+                    action, _ = model.predict(obs, action_masks=self.env.valid_action_mask(), deterministic=True)
                 else:
                     action, _ = model.predict(obs, deterministic=True)
 
                 obs, rewards, done, info = model.env.step(action)
             print("Episode terminated!")
 class PPO_Simple_Run:
-    def __init__(self):
-        self.env = flexible_flow_shop()
-        self.N_TEST_EPISODES = N_TIMESTEPS
+    def __init__(self,study):
+        self.N_TEST_EPISODES = study.N_TIMESTEPS
+        self.ORDERS = study.ORDERS
+        self.CHANGEOVER = study.CHANGEOVER
+        self.recreate_solution = study.recreate_solution
+        self.generate_heuristic_schedules = study.generate_heuristic_schedules
+        self.test = study.test
+        self.experiment_folder = study.experiment_folder
+        self.seed = study.seed
+        self.masking = study.masking
+        self.solution_hints = study.solution_hints
+        self.reward = study.reward
+        self.obs_size = study.obs_size
+        self.action_space = study.action_space
+        self.buffer_usage = study.buffer_usage
+        self.experiment_date = study.experiment_date
+        self.experiment_time = study.experiment_time
+        self.config = study.config
+        self.log_path = study.log_path
+        self.best_model_save_path = study.best_model_save_path
         self.terminated_makespan = {key: [] for key in range(self.N_TEST_EPISODES)}
         self.terminated_occ = {key: [] for key in range(self.N_TEST_EPISODES)}
         self.terminated_wl = {key: [] for key in range(self.N_TEST_EPISODES)}
-
+        env, train_env, eval_env, test_env = WrappingEnvironments(study)
+        self.env = env
+        self.train_env = train_env
+        self.eval_env = eval_env
+        self.test_env = test_env
     def PPO_Simple_Run_run(self):
 
         for episode in range(self.N_TEST_EPISODES):
@@ -560,11 +652,11 @@ class PPO_Simple_Run:
                     current_legal_operations = np.where(self.env.legal_operations)[0]
 
                     # ACTION SELECTION DEPENDING ON THE EXPERIMENT SETTING
-                    if recreate_solution != None:
+                    if self.recreate_solution != None:
                         action = current_legal_operations[0]
-                    elif generate_heuristic_schedules != None:
+                    elif self.generate_heuristic_schedules != None:
                         action, counter = get_action_heuristics(self.env, current_legal_operations, counter,
-                                                                 generate_heuristic_schedules, CHANGEOVER)
+                                                                 self.generate_heuristic_schedules, self.CHANGEOVER)
                     else:
                         action = np.random.choice(current_legal_operations)
 
@@ -572,7 +664,7 @@ class PPO_Simple_Run:
                     obs, reward, done, info = self.env.step(action)
 
                 else:  # SEND NOOP ACTION
-                    obs, reward, done, info = self.env.step(len(ORDERS))
+                    obs, reward, done, info = self.env.step(len(self.ORDERS))
 
             array_makespans = list(self.terminated_makespan.values())
             array_occ = list(self.terminated_occ.values())
@@ -582,20 +674,20 @@ class PPO_Simple_Run:
             flatten_list_occ = [i for sublist in array_occ for i in sublist]
             flatten_list_wl = np.float64([i for sublist in array_wl for i in sublist])
 
-            if generate_heuristic_schedules != None:
+            if self.generate_heuristic_schedules != None:
                 if flatten_list_makespans == []:  # ARRAY VALUE IN FIRST SIMULATION
                     self.env.render()
 
                 else:
-                    if generate_heuristic_schedules == "FIFO" or generate_heuristic_schedules == "SPT":
+                    if self.generate_heuristic_schedules == "FIFO" or self.generate_heuristic_schedules == "SPT":
                         env_variable = self.env.sim_duration
                         env_list_optimization_variable = flatten_list_makespans
 
-                    elif generate_heuristic_schedules == "EDD":
+                    elif self.generate_heuristic_schedules == "EDD":
                         env_variable = self.env.weighted_total_lateness
                         env_list_optimization_variable = flatten_list_wl
 
-                    elif generate_heuristic_schedules == "SCT":
+                    elif self.generate_heuristic_schedules == "SCT":
                         env_variable = self.env.oc_costs
                         env_list_optimization_variable = flatten_list_occ
 
@@ -623,11 +715,11 @@ class PPO_Simple_Run:
             print("Computation time: {}".format(sim_end - sim_init))
             print("#############################")
 
-        results_path = "outputs/{}/{}/render".format(experiment_folder, test)
+        results_path = "outputs/{}/{}/render".format(self.experiment_folder, self.test)
 
-        if generate_heuristic_schedules != None and flatten_list_makespans != []:
+        if self.generate_heuristic_schedules != None and flatten_list_makespans != []:
             info_heuristics = {
-                "POLICY": generate_heuristic_schedules,
+                "POLICY": self.generate_heuristic_schedules,
                 "NUMBER OF EPISODES": self.N_TEST_EPISODES,
                 "AVERAGE": np.average(env_list_optimization_variable),
                 "MEAN": np.mean(env_list_optimization_variable),
@@ -641,5 +733,5 @@ class PPO_Simple_Run:
                                  "OCC": flatten_list_occ,
                                  'WL': flatten_list_wl})
 
-            GenerateHeuristicResultsFiles(data, results_path, generate_heuristic_schedules, info_heuristics)
-            raincloud_plotter(data, results_path, self.N_TEST_EPISODES, generate_heuristic_schedules)
+            GenerateHeuristicResultsFiles(data, results_path, self.generate_heuristic_schedules, info_heuristics)
+            raincloud_plotter(data, results_path, self.N_TEST_EPISODES, self.generate_heuristic_schedules)

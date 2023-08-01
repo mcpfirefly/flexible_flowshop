@@ -1,43 +1,7 @@
-import collections, datetime, simpy, os, copy, gym, itertools, __main__
-from gym import spaces
 import numpy as np
-import random
 import pandas as pd
-import ast, re
+import os, re
 
-def StudyCaseFilename(workbook):
-    if workbook == "kopanos":
-        filename = "C:/Users/{}/PycharmProjects/flexible_flowshop/src/flexible_flow_shop/resources/workbooks/kopanos_scheduling_data.xlsx".format(os.getlogin())
-    elif workbook == "general":
-        filename = "C:/Users/{}/PycharmProjects/flexible_flowshop/src/flexible_flow_shop/resources/workbooks/general_scheduling_data.xlsx".format(os.getlogin())
-    return filename
-
-def GeneralStudyCase(filename):
-    GENERAL_DATA = pd.read_excel(filename, sheet_name="general_data")
-    return GENERAL_DATA
-
-def KopanosStudyCase(products_number,environment, filename,recreate_solution,solution_hints):
-
-    if products_number == 30:
-
-        if recreate_solution == None or solution_hints == None:
-            GENERAL_DATA = pd.read_excel(filename, sheet_name="general_data_30")
-
-            if recreate_solution == "kopanos" or (environment == "discrete_probs" and solution_hints == "kopanos"):
-                GENERAL_DATA = pd.read_excel(filename, sheet_name="kopanos_solution_30")
-            elif recreate_solution == "SPT" or (environment == "discrete_probs" and solution_hints == "SPT"):
-                GENERAL_DATA = pd.read_excel(filename, sheet_name="spt_solution_30")
-            elif recreate_solution == "SCT" or (environment == "discrete_probs" and solution_hints == "SCT"):
-                GENERAL_DATA = pd.read_excel(filename, sheet_name="sct_solution_30")
-            elif recreate_solution == "EDD" or (environment == "discrete_probs" and solution_hints == "EDD"):
-                GENERAL_DATA = pd.read_excel(filename, sheet_name="edd_solution_30")
-            elif recreate_solution == "FIFO" or (environment == "discrete_probs" and solution_hints == "FIFO"):
-                GENERAL_DATA = pd.read_excel(filename, sheet_name="fifo_solution_30")
-
-    elif products_number == 60:
-        GENERAL_DATA = pd.read_excel(filename, sheet_name="general_data_60")
-
-    return GENERAL_DATA
 
 def assign_position_in_schedule(self, order, N_OPERATIONS, MACHINES):
     order.position_in_schedule = self.counter
@@ -226,16 +190,6 @@ def get_impact_factor(IMPACT_FACTORS, order, next_order):
 def get_machine_idx(machine, MACHINES):
     index = MACHINES.index(machine)
     return index
-
-def obtain_machine_requested_per_stage(STAGES, MACHINES_PER_STAGE):
-    """Function that helps to obtain all the IDs of the machines divided
-    in sublists that represent each stage"""
-    ID_MACHINES_PER_STAGE = dict()
-    for i in STAGES:
-        ID_MACHINES_PER_STAGE[i] = list(MACHINES_PER_STAGE.set_index("stage").loc[[i]].loc[:, "machine"])
-    return ID_MACHINES_PER_STAGE
-
-
 def current_variables(self):
     self.job_completion_current = np.sum(self.jobs_completion)
     self.oc_costs_current = self.oc_costs

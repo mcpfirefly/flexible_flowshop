@@ -1,0 +1,15 @@
+params:
+- N_TIMESTEPS: 10
+  seed: 0
+  masking: true
+  reward: OCC
+  buffer_usage: no_buffers
+  time_in_buffer_custom: 1
+  workbook: kopanos
+  obs_size: big
+  action_space: discrete_probs
+  solution_hints: None
+  kopanos_products: 30
+  generate_heuristic_schedules: FIFO
+  recreate_solution: None
+  test: ppo_optuna

@@ -1,13 +1,5 @@
 import simpy
 import numpy as np
-from flexible_flow_shop.resources.functions.global_variables import NUM_MACHINES_PER_STAGE
-from flexible_flow_shop.resources.functions.global_variables import NUM_BUFFERS_PER_STAGE
-from flexible_flow_shop.resources.functions.global_variables import GENERAL_DATA
-from flexible_flow_shop.resources.functions.global_variables import PROCESSING_TIMES
-from flexible_flow_shop.resources.functions.global_variables import ID_MACHINES_PER_STAGE
-from flexible_flow_shop.resources.functions.global_variables import STAGES
-from flexible_flow_shop.resources.functions.global_variables import TOTAL_VISITED_STAGES
-from main import buffer_usage
 
 class Order:
 
@@ -18,7 +10,18 @@ class Order:
     are auxiliary in the monitoring of the scheduling process. These instance variables are later
     used in the code to create an Excel Workbook of results."""
 
-    def __init__(self,env,operation_id,order_id, machine,machine_id, product_code,stage,valid):
+    def __init__(self,study,env,operation_id,order_id, machine,machine_id, product_code,stage,valid):
+
+        self.NUM_MACHINES_PER_STAGE = study.NUM_MACHINES_PER_STAGE
+        self.NUM_BUFFERS_PER_STAGE = study.NUM_BUFFERS_PER_STAGE
+        self.GENERAL_DATA = study.GENERAL_DATA
+        self.PROCESSING_TIMES = study.PROCESSING_TIMES
+        self.ID_MACHINES_PER_STAGE = study.ID_MACHINES_PER_STAGE
+        self.STAGES = study.STAGES
+        self.TOTAL_VISITED_STAGES = study.TOTAL_VISITED_STAGES
+        self.buffer_usage = study.buffer_usage
+
+
         self.env = env
         self.order_id = order_id
         self.valid = valid
@@ -27,11 +30,11 @@ class Order:
         self.product_code = product_code
         self.operation_id = operation_id
         self.stage = stage
-        self.total_stages = TOTAL_VISITED_STAGES[self.order_id]
-        product_index_gd = GENERAL_DATA[GENERAL_DATA['product_code'] == self.product_code].index.values.astype(int)[0]
-        self.due_date = GENERAL_DATA.due_date[product_index_gd]
-        self.release_date = GENERAL_DATA.release_date[product_index_gd]
-        self.processing_time = PROCESSING_TIMES[machine][product_index_gd]
+        self.total_stages = self.TOTAL_VISITED_STAGES[self.order_id]
+        product_index_gd = self.GENERAL_DATA[self.GENERAL_DATA['product_code'] == self.product_code].index.values.astype(int)[0]
+        self.due_date = self.GENERAL_DATA.due_date[product_index_gd]
+        self.release_date = self.GENERAL_DATA.release_date[product_index_gd]
+        self.processing_time = self.PROCESSING_TIMES[machine][product_index_gd]
         self.changeover = None
         self.visited_stage = 0
         self.impact_factor_value = 0
@@ -74,13 +77,22 @@ class Factory(object):
     are being defined. Stage here is a FilterStore, whose items are
     the machines."""
 
-    def __init__(self, env):
-        self.env = env
-        self.stage = [simpy.FilterStore(env, NUM_MACHINES_PER_STAGE[i]) for i in STAGES]
-        for i in STAGES:
-            self.stage[i].items = ID_MACHINES_PER_STAGE[i].copy()
+    def __init__(self,study,env):
+        self.NUM_MACHINES_PER_STAGE = study.NUM_MACHINES_PER_STAGE
+        self.NUM_BUFFERS_PER_STAGE = study.NUM_BUFFERS_PER_STAGE
+        self.GENERAL_DATA = study.GENERAL_DATA
+        self.PROCESSING_TIMES = study.PROCESSING_TIMES
+        self.ID_MACHINES_PER_STAGE = study.ID_MACHINES_PER_STAGE
+        self.STAGES = study.STAGES
+        self.TOTAL_VISITED_STAGES = study.TOTAL_VISITED_STAGES
+        self.buffer_usage = study.buffer_usage
 
-        if buffer_usage != "no_buffers":
-            self.buffer = [simpy.Resource(env, capacity=np.inf) for i in range(len(NUM_BUFFERS_PER_STAGE))]
+        self.env = env
+        self.stage = [simpy.FilterStore(env, self.NUM_MACHINES_PER_STAGE[i]) for i in self.STAGES]
+        for i in self.STAGES:
+            self.stage[i].items = self.ID_MACHINES_PER_STAGE[i].copy()
+
+        if self.buffer_usage != "no_buffers":
+            self.buffer = [simpy.Resource(env, capacity=np.inf) for i in range(len(self.NUM_BUFFERS_PER_STAGE))]
             #up to 10 orders of the same product can be stored in the buffer
         self.finished_orders = []

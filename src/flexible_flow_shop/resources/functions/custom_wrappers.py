@@ -1,7 +1,6 @@
 import numpy as np
 import gym, torch
 from tensorflow_probability.python.distributions import Categorical
-from flexible_flow_shop.resources.functions.global_variables import ORDERS
 from gym.spaces import Discrete,Box,MultiDiscrete
 from sb3_contrib.common.maskable.callbacks import MaskableEvalCallback
 from stable_baselines3.common.callbacks import EvalCallback
@@ -105,16 +104,16 @@ class RewardWrapper_Completion(gym.RewardWrapper):
 class ActionWrapper_Discrete(gym.ActionWrapper):
     def __init__(self, env):
         super().__init__(env)
-        self._action_space = Discrete(len(ORDERS) + 1)
+        self._action_space = Discrete(len(self.orders) + 1)
 
     def action(self, act):
         return act
 class ActionWrapper_DiscreteProbs(gym.ActionWrapper):
     def __init__(self, env):
         super().__init__(env)
-        high = np.ones(len(ORDERS) + 1)
-        low = np.zeros(len(ORDERS) + 1)
-        self._action_space = Box(low=-high, high=high, shape=(len(ORDERS) + 1,), dtype=np.float)
+        high = np.ones(len(self.orders) + 1)
+        low = np.zeros(len(self.orders) + 1)
+        self._action_space = Box(low=-high, high=high, shape=(len(self.orders) + 1,), dtype=np.float)
 
     def action(self, act):
         act = np.argmax(act.probs)
@@ -184,11 +183,11 @@ class ProbabilitiesActionMaskEnv(gym.ActionWrapper):
 class ActionWrapper_DiscreteWithBuffer(gym.ActionWrapper):
     def __init__(self, env):
         super().__init__(env)
-        self._action_space = MultiDiscrete([len(ORDERS) + 1, 2, 6])
+        self._action_space = MultiDiscrete([len(self.orders) + 1, 2, 6])
         #Operation to allocate, buffer_usage, buffer_time/5
     def action(self, act):
         action = act[0]
-        if action != len(ORDERS):
+        if action != len(self.orders):
             self.orders[action].go_to_buffer = act[1]
             self.orders[action].time_in_buffer = act[2]/5
         return action
@@ -196,16 +195,16 @@ class ActionWrapper_DiscreteWithBuffer(gym.ActionWrapper):
 class ActionWrapper_DiscreteProbsWithBuffer(gym.ActionWrapper):
     def __init__(self, env):
         super().__init__(env)
-        shape_with_buffer = len(ORDERS) + 1 + 2 + 6 #Operations, NOOP, use_buffer, time_buffer
+        shape_with_buffer = len(self.orders) + 1 + 2 + 6 #Operations, NOOP, use_buffer, time_buffer
         high = np.ones(shape_with_buffer)
         low = np.zeros(shape_with_buffer)
         self._action_space = Box(low=low, high=high, shape=(shape_with_buffer,), dtype=np.float)
 
     def action(self, act):
-        action = np.argmax(act[0:len(ORDERS)+1])
-        if action != len(ORDERS):
-            self.orders[action].go_to_buffer = np.argmax(act[len(ORDERS)+1:][:2])
-            self.orders[action].time_in_buffer = np.argmax(act[len(ORDERS)+1+2:][:6])/5
+        action = np.argmax(act[0:len(self.orders)+1])
+        if action != len(self.orders):
+            self.orders[action].go_to_buffer = np.argmax(act[len(self.orders)+1:][:2])
+            self.orders[action].time_in_buffer = np.argmax(act[len(self.orders)+1+2:][:6])/5
         return action
 
 class ActionWrapper_ContinuousWithBuffer(gym.ActionWrapper):
