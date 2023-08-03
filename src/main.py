@@ -6,6 +6,7 @@ from experiments.experiments import (
     PPO_Manual_Parameters,
     PPO_Simple_Run,
     PPO_Test_Trained,
+    PPO_Imitation_DAgger,
 )
 
 
@@ -26,7 +27,7 @@ def main(cfg: DictConfig) -> DictConfig:
         PPO_Optuna(study).PPO_Optuna_run()
     elif config.test == "ppo_test_trained":
         PPO_Test_Trained(study).PPO_Test_Trained_Run()
-
-
+    elif config.test == "imitation_dagger":
+        PPO_Imitation_DAgger(study).PPO_Imitation_DAgger_run()
 if __name__ == "__main__":
     main()

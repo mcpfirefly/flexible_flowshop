@@ -11,6 +11,11 @@ from flexible_flow_shop.resources.functions.scheduling_functions import get_time
 from flexible_flow_shop.resources.functions.scheduling_functions import (
     get_impact_factor,
 )
+
+from flexible_flow_shop.resources.functions.scheduling_functions import (
+    get_action_heuristics,
+)
+
 from flexible_flow_shop.resources.functions.scheduling_functions import (
     prepare_historical_and_flags,
 )
@@ -174,7 +179,7 @@ class flexible_flow_shop(gym.Env):
         self.heuristics_products_per_stage = [[] for i in self.study.STAGES]
         self.counter_positions_heuristics = [0 for i in self.study.STAGES]
         self.heuristics_solution = []
-
+        self.counter_heuristics = 0
         return self._get_observation()
 
     def valid_action_mask(self):
@@ -184,19 +189,45 @@ class flexible_flow_shop(gym.Env):
         else:
             self.legal_operations[-1] = True
 
-        if self.study.buffer_usage == "agent_decides":
+        if self.study.heuristics_policy_rl != None:
+            alpha = 0.2
+            mask_ppo = self.legal_operations
+            legal_operations_ppo = list(np.argwhere(np.array(mask_ppo, dtype=int)).flatten())
+            legal_operations_heuristics, self.counter_heuristics = get_action_heuristics(self, legal_operations_ppo,
+                                                                    self.counter_heuristics, None,
+                                                                    self.study.heuristics_policy_rl,
+                                                                    self.study.CHANGEOVER)
+
+            mask_heuristics = np.zeros(np.array(len(self.orders)+1))
+
+            if isinstance(legal_operations_heuristics, list):
+                for index in legal_operations_heuristics:
+                    mask_heuristics[index] = 1
+            else:
+                if legal_operations_heuristics == len(self.orders):
+                    mask_heuristics[-1] = 1
+                else:
+                    mask_heuristics[legal_operations_heuristics] = 1
+
+
+            random_variable = np.random.random()
+            if random_variable < (1 - alpha):
+                mask = mask_heuristics
+            else:
+                mask = mask_ppo
+        else:
             mask = []
+            mask.append(self.legal_operations)
+
+        if self.study.buffer_usage == "agent_decides":
             mask_use_buffer = np.ones(2)  # [0, 1]
             mask_time_in_buffer = [np.zeros(1), np.ones(5)]  # [0, 1, 2, 3, 4, 5]
-            mask.append(self.legal_operations)
             mask.append(mask_use_buffer)
             mask.append(mask_time_in_buffer[0])
             mask.append(mask_time_in_buffer[1])
             mask = list(itertools.chain.from_iterable(mask))
 
-        else:
-            mask = self.legal_operations
-
+        mask = np.array(mask, dtype=bool)
         return mask
 
     def _scheduling(self, env, action):
@@ -373,7 +404,7 @@ class flexible_flow_shop(gym.Env):
 
                             yield self.factory.buffer[buffer_stage].release(request)
 
-            if self.study.generate_heuristic_schedules != None:
+            if self.study.generate_heuristic_schedules != None or self.study.heuristics_policy_rl != None:
                 MAX_QUEUE_SIZE = np.inf
             else:
                 MAX_QUEUE_SIZE = 1
@@ -683,7 +714,7 @@ class flexible_flow_shop(gym.Env):
                 print("Makespan value: {}".format(self.sim_duration))
                 print("OCC value: {}".format(self.oc_costs))
                 print("WL value: {}".format(self.weighted_total_lateness))
-
+                print("Reward: {}".format(self.total_reward))
                 self.done = True
 
             info = {
@@ -755,7 +786,7 @@ class flexible_flow_shop(gym.Env):
                 print("Makespan value: {}".format(self.sim_duration))
                 print("OCC value: {}".format(self.oc_costs))
                 print("WL value: {}".format(self.weighted_total_lateness))
-
+                print("Reward: {}".format(self.total_reward))
                 # if solution_hints == "kopanos":
                 #    if self.sim_duration < 28 or self.oc_costs < 65 or self.weighted_total_lateness < 200:
                 #       self.render()

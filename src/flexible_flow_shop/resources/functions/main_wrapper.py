@@ -23,6 +23,7 @@ def MakeEnvironment(
     obs_size,
     buffer_usage,
     log_path,
+    heuristics_policy_rl,
 ):
     """OBSERVATION SIZE"""
     if obs_size == "big":
@@ -54,7 +55,7 @@ def MakeEnvironment(
             env = gym.wrappers.ClipAction(env)
 
     """MASKING USE (ONLY DISCRETE AND DISCRETE WITH PROBS)"""
-    if masking and action_mode == "discrete":
+    if (masking and action_mode == "discrete") or (heuristics_policy_rl != None):
         env = ActionMasker(env, mask_fn)
     elif masking and action_mode == "discrete_probs":
         env = ProbabilitiesActionMaskEnv(env)

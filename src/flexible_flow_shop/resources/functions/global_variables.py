@@ -32,6 +32,7 @@ class StudyCase:
         self.solution_hints = cfg.solution_hints
         self.products_number = cfg.products_number
         self.generate_heuristic_schedules = cfg.generate_heuristic_schedules
+        self.heuristics_policy_rl = cfg.heuristics_policy_rl
         self.recreate_solution = cfg.recreate_solution
         self.test = cfg.test
         self.workbook = cfg.workbook

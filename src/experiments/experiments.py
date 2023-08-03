@@ -2,6 +2,7 @@ from flexible_flow_shop.resources.functions.main_wrapper import MakeEnvironment
 from flexible_flow_shop.environment import flexible_flow_shop
 from experiments.rl_algorithms.maskable_ppo import MaskablePPO
 from experiments.rl_algorithms.ppo import PPO
+from torch.distributions import Categorical
 from flexible_flow_shop.resources.functions.custom_wrappers import (
     CustomMaskableEvalCallback as MaskableEvalCallback,
 )
@@ -14,16 +15,18 @@ from flexible_flow_shop.resources.functions.scheduling_functions import (
 )
 
 from custom_plotters.raincloud_plotter.raincloud_plotter import raincloud_plotter
+from stable_baselines3.common.evaluation import evaluate_policy
 
 import pandas as pd
 import numpy as np
-
-import optuna, time, gym, torch, datetime
+import optuna, tempfile, gym, torch, datetime, os
 from optuna.samplers import TPESampler
 from optuna.pruners import MedianPruner
 import torch.nn as nn
 from typing import Dict, Any, Union, Callable
-
+from stable_baselines3.common.vec_env import DummyVecEnv
+from imitation.algorithms import bc
+from imitation.algorithms.dagger import SimpleDAggerTrainer
 
 def make_environment(study, suffix):
     return MakeEnvironment(
@@ -37,6 +40,7 @@ def make_environment(study, suffix):
         obs_size=study.obs_size,
         buffer_usage=study.buffer_usage,
         log_path=(study.log_path + suffix),
+        heuristics_policy_rl=study.heuristics_policy_rl,
     )
 
 
@@ -76,7 +80,6 @@ class PPO_Optuna:
         self.best_model_save_path = study.best_model_save_path
         self.train_env = make_environment(study, "_training")
         self.eval_env = make_environment(study, "_evaluation")
-        self.test_env = make_environment(study, "_testing")
 
     def linear_schedule(
         self, initial_value: Union[float, str]
@@ -416,7 +419,6 @@ class PPO_Manual_Parameters:
         self.best_model_save_path = study.best_model_save_path
         self.train_env = make_environment(study, "_training")
         self.eval_env = make_environment(study, "_evaluation")
-        self.test_env = make_environment(study, "_testing")
 
     def linear_schedule(
         self, initial_value: Union[float, str]
@@ -567,7 +569,6 @@ class PPO_Manual_Parameters:
 
 class PPO_Test_Trained:
     def __init__(self, study):
-        self.use_trained_with_solution = False
         self.initialize_global_variables(study)
 
     def initialize_global_variables(self, study):
@@ -576,6 +577,7 @@ class PPO_Test_Trained:
         self.CHANGEOVER = study.CHANGEOVER
         self.recreate_solution = study.recreate_solution
         self.generate_heuristic_schedules = study.generate_heuristic_schedules
+        self.heuristics_policy_rl = study.heuristics_policy_rl
         self.test = study.test
         self.experiment_folder = study.experiment_folder
         self.seed = study.seed
@@ -590,13 +592,9 @@ class PPO_Test_Trained:
         self.config = study.config
         self.log_path = study.log_path
         self.best_model_save_path = study.best_model_save_path
-        self.train_env = make_environment(study, "_training")
-        self.eval_env = make_environment(study, "_evaluation")
         self.test_env = make_environment(study, "_testing")
 
     def PPO_Test_Trained_Run(self):
-        if self.use_trained_with_solution:
-            model_to_load = "TBD"
 
         if self.action_space == "discrete" and self.masking:
             model_to_load = None
@@ -610,7 +608,7 @@ class PPO_Test_Trained:
         print("set env model")
 
         model.env.reset()
-        print("reseted")
+        print("env reset")
         print("start learning")
 
         print("set env model")
@@ -648,6 +646,7 @@ class PPO_Simple_Run:
         self.CHANGEOVER = study.CHANGEOVER
         self.recreate_solution = study.recreate_solution
         self.generate_heuristic_schedules = study.generate_heuristic_schedules
+        self.heuristics_policy_rl = study.heuristics_policy_rl
         self.test = study.test
         self.experiment_folder = study.experiment_folder
         self.seed = study.seed
@@ -683,6 +682,7 @@ class PPO_Simple_Run:
                             current_legal_operations,
                             counter,
                             self.generate_heuristic_schedules,
+                            self.heuristics_policy_rl,
                             self.CHANGEOVER,
                         )
                     else:
@@ -783,3 +783,73 @@ class PPO_Simple_Run:
                 self.N_TEST_EPISODES,
                 self.generate_heuristic_schedules,
             )
+
+
+class PPO_Imitation_DAgger:
+
+    def __init__(self, study):
+        self.initialize_global_variables(study)
+        self.N_EVALUATIONS = self.N_TIMESTEPS / 1000  # evaluations
+        self.EVAL_FREQ = int(self.N_TIMESTEPS / self.N_EVALUATIONS)
+        self.N_EVAL_EPISODES = 10
+
+    def initialize_global_variables(self, study):
+        self.N_TIMESTEPS = study.N_TIMESTEPS  # for every trial
+        self.ORDERS = study.ORDERS
+        self.CHANGEOVER = study.CHANGEOVER
+        self.recreate_solution = study.recreate_solution
+        self.generate_heuristic_schedules = study.generate_heuristic_schedules
+        self.heuristics_policy_rl = study.heuristics_policy_rl
+        self.test = study.test
+        self.experiment_folder = study.experiment_folder
+        self.seed = study.seed
+        self.masking = study.masking
+        self.solution_hints = study.solution_hints
+        self.reward = study.reward
+        self.obs_size = study.obs_size
+        self.action_space = study.action_space
+        self.buffer_usage = study.buffer_usage
+        self.experiment_date = study.experiment_date
+        self.experiment_time = study.experiment_time
+        self.config = study.config
+        self.log_path = study.log_path
+        self.best_model_save_path = study.best_model_save_path
+        self.env = make_environment(study,"")
+
+    def PPO_Imitation_DAgger_run(self):
+        rng = np.random.default_rng(0)
+        env = self.env
+
+        if self.action_space == "discrete" and self.masking:
+            expert_to_load = None
+            expert = MaskablePPO.load(expert_to_load)
+        else:
+            expert_to_load = "C:/Users/{}/PycharmProjects/flexible_flowshop/src/experiments/results/04_rl_larger_network/rl+spt_mks/Saved_Models/best_model.zip".format(os.getlogin())
+            expert = PPO.load(expert_to_load)
+
+        print("loaded model")
+        expert.set_env(env)
+        print("set env model")
+        expert.env.reset()
+        print("env reset")
+
+        venv = DummyVecEnv([lambda: self.env])
+
+        bc_trainer = bc.BC(
+            observation_space=env.observation_space,
+            action_space=env.action_space,
+            rng=rng,
+        )
+        with tempfile.TemporaryDirectory(prefix="dagger_example_") as tmpdir:
+            print(tmpdir)
+            dagger_trainer = SimpleDAggerTrainer(
+                venv=venv,
+                scratch_dir=tmpdir,
+                expert_policy=expert,
+                bc_trainer=bc_trainer,
+                rng=rng,
+            )
+            dagger_trainer.train(2000)
+
+        reward, _ = evaluate_policy(dagger_trainer.policy, env, self.N_EVAL_EPISODES)
+        print("Reward:", reward)

@@ -280,8 +280,9 @@ def past_variables(self):
 
 
 def generate_schedule_first_stage(
-    env, current_legal_operations, counter, generate_heuristic_schedules, CHANGEOVER
+    env, current_legal_operations, counter, generate_heuristic_schedules, heuristics_policy_rl, CHANGEOVER
 ):
+
     a = list(
         np.arange(0, 495, 17)
     )  # ACTION INDICES FOR FIRST STAGE OPERATIONS IN MACHINE 1
@@ -296,14 +297,14 @@ def generate_schedule_first_stage(
 
     if first_stage_operations:
         first_stage_in_progress = 1
-        if generate_heuristic_schedules == "FIFO":
-            action = np.random.choice(first_stage_operations)
-        elif generate_heuristic_schedules == "EDD":
-            action = search_actions_EDD(env, first_stage_operations)
-        elif generate_heuristic_schedules == "SPT":
-            action = search_actions_SPT(env, first_stage_operations)
-        elif generate_heuristic_schedules == "SCT":
-            action = search_actions_SCT(env, first_stage_operations, CHANGEOVER)
+        if generate_heuristic_schedules == "FIFO" or heuristics_policy_rl == "FIFO":
+            action = np.random.choice(first_stage_operations,heuristics_policy_rl)
+        elif generate_heuristic_schedules == "EDD" or heuristics_policy_rl == "EDD":
+            action = search_actions_EDD(env, first_stage_operations,heuristics_policy_rl)
+        elif generate_heuristic_schedules == "SPT" or heuristics_policy_rl == "SPT":
+            action = search_actions_SPT(env, first_stage_operations,heuristics_policy_rl)
+        elif generate_heuristic_schedules == "SCT" or heuristics_policy_rl == "SCT":
+            action = search_actions_SCT(env, first_stage_operations, CHANGEOVER,heuristics_policy_rl)
     else:
         first_stage_in_progress = 0
         action = None
@@ -311,7 +312,7 @@ def generate_schedule_first_stage(
     return action, first_stage_in_progress, counter
 
 
-def search_actions_FIFO(env, action, operations):
+def search_actions_FIFO(env, action, operations,heuristics_policy_rl):
     new_actions_machine_free = []
     new_actions_machine_busy = []
     order = env.orders[action]
@@ -328,14 +329,21 @@ def search_actions_FIFO(env, action, operations):
                 new_actions_machine_free.append(new_possible_action)
             else:
                 new_actions_machine_busy.append(new_possible_action)
-    if new_actions_machine_free != []:
-        action = np.random.choice(new_actions_machine_free)
+
+    if heuristics_policy_rl == None:
+        if new_actions_machine_free != []:
+            action = np.random.choice(new_actions_machine_free)
+        else:
+            action = np.random.choice(new_actions_machine_busy)
     else:
-        action = np.random.choice(new_actions_machine_busy)
+        if new_actions_machine_free != []:
+            action = new_actions_machine_free
+        else:
+            action = new_actions_machine_busy
     return action
 
 
-def search_actions_EDD(env, operations):
+def search_actions_EDD(env, operations,heuristics_policy_rl):
     new_order_dd = []
     new_order_id = []
     new_order_ids = []
@@ -350,11 +358,14 @@ def search_actions_EDD(env, operations):
     for i, value in enumerate(min_due_date_idx):
         new_order_ids.append(new_order_id[value])
 
-    action = np.random.choice(new_order_ids)
+    if heuristics_policy_rl == None:
+        action = np.random.choice(new_order_ids)
+    else:
+        action = new_order_ids
     return action
 
 
-def search_actions_SPT(env, operations):
+def search_actions_SPT(env, operations,heuristics_policy_rl):
     new_order_ids = []
 
     # actions with free machines
@@ -380,15 +391,22 @@ def search_actions_SPT(env, operations):
         ]
         for i, value in enumerate(min_processing_times_idx):
             new_order_ids.append(new_order_id[value])
-        action = np.random.choice(new_order_ids)
+
+        if heuristics_policy_rl == None:
+            action = np.random.choice(new_order_ids)
+        else:
+            action = new_order_ids
+
 
     else:
-        action = np.random.choice(new_order_id_busy)
-
+        if heuristics_policy_rl == None:
+            action = np.random.choice(new_order_id_busy)
+        else:
+            action = new_order_id_busy
     return action
 
 
-def search_actions_SCT(env, operations, CHANGEOVER):
+def search_actions_SCT(env, operations, CHANGEOVER,heuristics_policy_rl):
     new_order_ids = []
 
     # actions with free machines
@@ -437,45 +455,52 @@ def search_actions_SCT(env, operations, CHANGEOVER):
             new_order_ids.append(new_order_id_busy[value])
 
     # print("CHOOSE FROM: {} or {}".format(new_orders_changeover_times,new_orders_changeover_times_busy))
-    action = np.random.choice(new_order_ids)
+    if heuristics_policy_rl == None:
+        action = np.random.choice(new_order_ids)
+    else:
+        action = new_order_ids
     # print("CHANGEOVER SELECTED: {}".format(env.orders[action].changeover))
     return action
 
 
 def search_options_with_available_machines(
-    env, action, current_legal_operations, generate_heuristic_schedules, CHANGEOVER
+    env, action, current_legal_operations, generate_heuristic_schedules, heuristics_policy_rl, CHANGEOVER
 ):
     if generate_heuristic_schedules == "FIFO":
-        action = search_actions_FIFO(env, action, current_legal_operations)
+        action = search_actions_FIFO(env, action, current_legal_operations,heuristics_policy_rl)
 
     elif generate_heuristic_schedules == "EDD":
-        action = search_actions_EDD(env, current_legal_operations)
+        action = search_actions_EDD(env, current_legal_operations,heuristics_policy_rl)
 
     elif generate_heuristic_schedules == "SPT":
-        action = search_actions_SPT(env, current_legal_operations)
+        action = search_actions_SPT(env, current_legal_operations,heuristics_policy_rl)
 
     elif generate_heuristic_schedules == "SCT":
-        action = search_actions_SCT(env, current_legal_operations, CHANGEOVER)
+        action = search_actions_SCT(env, current_legal_operations, CHANGEOVER,heuristics_policy_rl)
 
     return action
 
 
 def get_action_heuristics(
-    env, current_legal_operations, counter, generate_heuristic_schedules, CHANGEOVER
+    env, current_legal_operations, counter, generate_heuristic_schedules, heuristics_policy_rl, CHANGEOVER
 ):
     action, first_stage_in_progress, counter = generate_schedule_first_stage(
-        env, current_legal_operations, counter, generate_heuristic_schedules, CHANGEOVER
+        env, current_legal_operations, counter, generate_heuristic_schedules, heuristics_policy_rl, CHANGEOVER
     )
 
     if first_stage_in_progress:
         counter += 1
     else:
-        action = np.random.choice(current_legal_operations)
+        if len(current_legal_operations) != 0:
+            action = np.random.choice(current_legal_operations)
+        else:
+            action = 510
         action = search_options_with_available_machines(
             env,
             action,
             current_legal_operations,
             generate_heuristic_schedules,
+            heuristics_policy_rl,
             CHANGEOVER,
         )
     return action, counter
