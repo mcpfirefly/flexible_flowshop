@@ -255,7 +255,7 @@ class flexible_flow_shop(gym.Env):
         if self.legal_operations[action] and action != len(self.study.ORDERS):
             order = self.orders[action]
 
-            if self.action_space == "continuous":
+            if self.study.action_space == "continuous" or (self.study.masking == False and self.study.action_space == "discrete"):
                 self.reward = 1
 
             if self.study.buffer_usage != "no_buffers" and order.stage > 0:
@@ -427,7 +427,6 @@ class flexible_flow_shop(gym.Env):
 
                     self.heuristics_products_per_stage[i].append(order.order_id)
                     self.heuristics_solution.append(order.operation_id)
-                    # print(self.heuristics_products_per_stage)
 
                 order.changeover_value = 0
                 order.time_changeover_starts = 0
@@ -435,7 +434,7 @@ class flexible_flow_shop(gym.Env):
                 stage = i + 1  # for #print statements
                 # Arrival of a product to a stage
                 order.time_arriving_stage = self.env.now
-                # print("{} arrives at stage {} at {} and waits for machine allocation.".format(order.product_code, stage, order.time_arriving_stage))
+                print("{} arrives at stage {} at {} and waits for machine allocation.".format(order.product_code, stage, order.time_arriving_stage))
 
                 self.machine_queue[order.machine] += 1
 
@@ -491,8 +490,8 @@ class flexible_flow_shop(gym.Env):
                     #    order.waiting_value = np.around((order.time_start_process - self.time_left_previous_stage[order.order_id]),4)
                     #    self.operation_waiting_time[order.position_in_schedule] = order.waiting_value
                     #    self.job_waiting_time[order.order_id] += self.operation_waiting_time[order.position_in_schedule]
-                    # print("{} waited {} in queue to enter stage {}.".format(order.product_code, order.waiting_value, stage))
-                    # print("{} starts processing in machine {} at {}.".format(order.product_code,order.machine,order.time_start_process))
+                    print("{} waited {} in queue to enter stage {}.".format(order.product_code, order.waiting_value, stage))
+                    print("{} starts processing in machine {} at {}.".format(order.product_code,order.machine,order.time_start_process))
                     process_time = processing_times(
                         self, env, self.study.PROCESSING_TIMES, order, order.machine_id
                     )
@@ -506,7 +505,7 @@ class flexible_flow_shop(gym.Env):
                     order.processing_value = (
                         order.time_leaving_stage - order.time_start_process
                     )
-                    # print("{} left stage {} at {}.".format(order.product_code, stage, order.time_leaving_stage))
+                    print("{} left stage {} at {}.".format(order.product_code, stage, order.time_leaving_stage))
                     self.sim_duration = env.now
                     self.time_left_previous_stage[
                         order.order_id
@@ -591,7 +590,7 @@ class flexible_flow_shop(gym.Env):
                         )
                     if changeover_condition:
                         order.time_changeover_starts = self.env.now
-                        # print("Changeover in machine {} starts at {}.".format(order.machine, order.time_changeover_starts))
+                        print("Changeover in machine {} starts at {}.".format(order.machine, order.time_changeover_starts))
                         # While no other orders have been allocated do:
                         while len(self.historical_selection[order.machine]) == 0:
                             # While there is still no next order, keep the machine "busy" and perform a "dummy"
@@ -650,7 +649,7 @@ class flexible_flow_shop(gym.Env):
                         )
                         self.cumulative_changeover += order.changeover_value
                         self.all_changeover_costs += order.changeover_cost
-                        # print("Changeover to receive {}  in machine {} finished at {}.".format(next_order.product_code,order.machine,order.time_changeover_starts + order.changeover_value))
+                        print("Changeover to receive {}  in machine {} finished at {}.".format(next_order.product_code,order.machine,order.time_changeover_starts + order.changeover_value))
 
                     if order.changeover_value != 0:
                         changeover_task_object = GanttJob(
@@ -678,7 +677,7 @@ class flexible_flow_shop(gym.Env):
         and receives the self.observation, self.reward, terminated and truncated signals.
         """
 
-        if self.action_space == "continuous" and not (self.legal_operations[action]):
+        if (self.study.action_space == "continuous" or (self.study.masking == False and self.study.action_space == "discrete")) and not (self.legal_operations[action]):
             self.episode_length += 1
 
             if self.finished_orders.all() or np.round(self.completion_score, 5) == 1.0:
@@ -701,7 +700,7 @@ class flexible_flow_shop(gym.Env):
                     self.render()
                 self.done = True
 
-            if self.sim_duration >= 60 or self.episode_length >= 5000:
+            if self.sim_duration >= 60 or self.episode_length >= 2500:
                 print("------------------------------------------------------")
                 print(
                     "Episode truncated! Completion score: {}%".format(
@@ -795,7 +794,7 @@ class flexible_flow_shop(gym.Env):
                 #        self.render()
                 self.done = True
 
-            if self.sim_duration >= 100:
+            if self.sim_duration >= 100 or self.episode_length > 2500:
                 print("------------------------------------------------------")
                 print(
                     "Episode truncated! Completion score: {}%".format(

@@ -1,8 +1,15 @@
+from unstable_baselines.baselines.redq.trainer import REDQTrainer
+from unstable_baselines.common.logger import Logger
+from unstable_baselines.baselines.sac.trainer import SACTrainer
+from unstable_baselines.baselines.sac.agent import SACAgent
+from unstable_baselines.common.util import set_device_and_logger, load_config, set_global_seed
+from unstable_baselines.common.buffer import ReplayBuffer
+
+from unstable_baselines.baselines.redq.agent import REDQAgent
 from flexible_flow_shop.resources.functions.main_wrapper import MakeEnvironment
 from flexible_flow_shop.environment import flexible_flow_shop
 from experiments.rl_algorithms.maskable_ppo import MaskablePPO
 from experiments.rl_algorithms.ppo import PPO
-from torch.distributions import Categorical
 from flexible_flow_shop.resources.functions.custom_wrappers import (
     CustomMaskableEvalCallback as MaskableEvalCallback,
 )
@@ -853,3 +860,253 @@ class PPO_Imitation_DAgger:
 
         reward, _ = evaluate_policy(dagger_trainer.policy, env, self.N_EVAL_EPISODES)
         print("Reward:", reward)
+
+
+class SAC_Discrete:
+    def __init__(self, study):
+        self.initialize_global_variables(study)
+        self.N_EVALUATIONS = self.N_TIMESTEPS / 1000  # evaluations
+        self.EVAL_FREQ = int(self.N_TIMESTEPS / self.N_EVALUATIONS)
+        self.N_EVAL_EPISODES = 10
+
+    def initialize_global_variables(self, study):
+        self.N_TIMESTEPS = study.N_TIMESTEPS  # for every trial
+        self.ORDERS = study.ORDERS
+        self.CHANGEOVER = study.CHANGEOVER
+        self.recreate_solution = study.recreate_solution
+        self.generate_heuristic_schedules = study.generate_heuristic_schedules
+        self.test = study.test
+        self.experiment_folder = study.experiment_folder
+        self.seed = study.seed
+        self.masking = study.masking
+        self.solution_hints = study.solution_hints
+        self.reward = study.reward
+        self.obs_size = study.obs_size
+        self.action_space = study.action_space
+        self.buffer_usage = study.buffer_usage
+        self.experiment_date = study.experiment_date
+        self.experiment_time = study.experiment_time
+        self.config = study.config
+        self.log_path = study.log_path
+        self.best_model_save_path = study.best_model_save_path
+        self.train_env = make_environment(study, "_training")
+        self.eval_env = make_environment(study, "_evaluation")
+
+    def SAC_Discrete_run(self):
+        args = {
+          "env_name": "",
+          "env":{
+              },
+          "buffer":{
+            "max_buffer_size": 100000
+          },
+          "agent":{
+            "gamma": 0.99,
+            "update_target_network_interval": 1,
+            "target_smoothing_tau": 0.005,
+            "alpha": 0.2,
+            "reward_scale": 1.0,
+            "q_network":{
+              "network_params": [("mlp", 64), ("mlp", 64),("mlp", 64), ("mlp", 64)],
+              "optimizer_class": "Adam",
+              "learning_rate":0.0003,
+              "act_fn": "relu",
+              "out_act_fn": "identity"
+            },
+            "policy_network":{
+              "network_params": [("mlp", 64), ("mlp", 64),("mlp", 64), ("mlp", 64)],
+              "optimizer_class": "Adam",
+              "learning_rate":0.0003,
+              "act_fn": "relu",
+              "out_act_fn": "identity",
+            },
+            "entropy":{
+              "automatic_tuning": True,
+              "learning_rate": 0.0003,
+              "optimizer_class": "Adam",
+              "scale": 0.5
+            }
+          },
+          "trainer":{
+            "max_env_steps": self.N_TIMESTEPS,
+            "batch_size": 256,
+            "eval_interval": self.EVAL_FREQ,
+            "num_eval_trajectories": self.N_EVAL_EPISODES,
+            "snapshot_interval": 10000,
+            "start_timestep": 2000,
+            "random_policy_timestep": 1000,
+            "save_video_demo_interval": -1,
+            "log_interval": 100,
+            "max_trajectory_length": 1000
+          }
+        }
+
+        # set global seed
+        set_global_seed(self.seed)
+
+        # initialize logger
+        env_name = args['env_name']
+        logger = Logger(self.log_path, env_name, self.seed, info_str="", print_to_terminal=True)
+
+        # set device and logger
+        set_device_and_logger(-1, logger)
+
+        # save args
+        logger.log_str_object("parameters", log_dict=args)
+
+        # initialize environment
+        logger.log_str("Initializing Environment")
+        train_env = self.train_env
+        eval_env = self.eval_env
+        observation_space = train_env.observation_space
+        action_space = train_env.action_space
+
+        # initialize buffer
+        logger.log_str("Initializing Buffer")
+        buffer = ReplayBuffer(observation_space, action_space, **args['buffer'])
+
+        # initialize agent
+        logger.log_str("Initializing Agent")
+        agent = SACAgent(observation_space, action_space, **args['agent'])
+
+        # initialize trainer
+        logger.log_str("Initializing Trainer")
+        trainer = SACTrainer(
+            agent,
+            train_env,
+            eval_env,
+            buffer,
+            load_path="",
+            **args['trainer']
+        )
+
+        logger.log_str("Started training")
+        trainer.train()
+
+class REDQ:
+    def __init__(self, study):
+        self.initialize_global_variables(study)
+        self.N_EVALUATIONS = self.N_TIMESTEPS / 1000  # evaluations
+        self.EVAL_FREQ = int(self.N_TIMESTEPS / self.N_EVALUATIONS)
+        self.N_EVAL_EPISODES = 10
+
+    def initialize_global_variables(self, study):
+        self.N_TIMESTEPS = study.N_TIMESTEPS  # for every trial
+        self.ORDERS = study.ORDERS
+        self.CHANGEOVER = study.CHANGEOVER
+        self.recreate_solution = study.recreate_solution
+        self.generate_heuristic_schedules = study.generate_heuristic_schedules
+        self.test = study.test
+        self.experiment_folder = study.experiment_folder
+        self.seed = study.seed
+        self.masking = study.masking
+        self.solution_hints = study.solution_hints
+        self.reward = study.reward
+        self.obs_size = study.obs_size
+        self.action_space = study.action_space
+        self.buffer_usage = study.buffer_usage
+        self.experiment_date = study.experiment_date
+        self.experiment_time = study.experiment_time
+        self.config = study.config
+        self.log_path = study.log_path
+        self.best_model_save_path = study.best_model_save_path
+        self.train_env = make_environment(study, "_training")
+        self.eval_env = make_environment(study, "_evaluation")
+
+    def REDQ_run(self):
+        args = {
+            "env_name": "",
+            "env": {
+
+            },
+            "buffer": {
+                "max_buffer_size": 100000
+            },
+            "agent": {
+                "gamma": 0.99,
+                "reward_scale": 5.0,
+                "update_target_network_interval": 1,
+                "target_smoothing_tau": 0.005,
+                "num_q_networks": 10,
+                "num_q_samples": 2,
+                "alpha": 0.2,
+                "q_network": {
+                    "network_params": [("mlp", 64), ("mlp", 64),("mlp", 64), ("mlp", 64)],
+                    "optimizer_class": "Adam",
+                    "learning_rate": 0.0003,
+                    "act_fn": "relu",
+                    "out_act_fn": "identity"
+                },
+                "policy_network": {
+                    "network_params": [("mlp", 64), ("mlp", 64),("mlp", 64), ("mlp", 64)],
+                    "optimizer_class": "Adam",
+                    "deterministic": False,
+                    "learning_rate": 0.0003,
+                    "act_fn": "relu",
+                    "out_act_fn": "identity",
+                    "reparameterize": True,
+                    "stablelize_log_prob": True,
+                },
+                "entropy": {
+                    "automatic_tuning": True,
+                    "learning_rate": 0.0003,
+                    "optimizer_class": "Adam",
+                    "scale": 0.5
+                }
+            },
+            "trainer": {
+                "max_env_steps": self.N_TIMESTEPS,
+                "batch_size": 256,
+                "max_trajectory_length": 1000,
+                "update_policy_interval": 20,
+                "eval_interval": 2000,
+                "num_eval_trajectories": 10,
+                "save_video_demo_interval": -1,
+                "warmup_timesteps": 1000,
+                "snapshot_interval": 10000,
+                "log_interval": 100,
+                "utd": 20
+            }
+        }
+        # set global seed
+        set_global_seed(self.seed)
+
+        # initialize logger
+        env_name = args['env_name']
+        logger = Logger(self.log_path, env_name, self.seed, info_str="", print_to_terminal=True)
+
+        # set device and logger
+        set_device_and_logger(-1, logger)
+
+        # save args
+        logger.log_str_object("parameters", log_dict=args)
+
+        # initialize environment
+        logger.log_str("Initializing Environment")
+        train_env = self.train_env
+        eval_env = self.eval_env
+        observation_space = train_env.observation_space
+        action_space = train_env.action_space
+
+     # initialize buffer
+        buffer = ReplayBuffer(observation_space, action_space, **args['buffer'])
+
+        # initialize agent
+        logger.log_str("Initializing Agent")
+        agent = REDQAgent(observation_space, action_space, **args['agent'])
+
+        # initialize trainer
+        logger.log_str("Initializing Trainer")
+        trainer = REDQTrainer(
+            agent,
+            train_env,
+            eval_env,
+            buffer,
+            load_path="",
+            **args['trainer']
+        )
+
+        logger.log_str("Started training")
+        trainer.train()
+
+

@@ -86,7 +86,7 @@ def MakeEnvironment(
         env = gym.wrappers.TransformReward(env, lambda reward: np.clip(reward, -10, 10))
 
     """SEED FOR REPRODUCIBILITY"""
-    if seed:
+    if seed != None:
         env.seed(seed)
         env.action_space.seed(seed)
         env.observation_space.seed(seed)

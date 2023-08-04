@@ -1,6 +1,7 @@
 import numpy as np
 import gym, torch
 from torch.distributions import Categorical
+from torchrl.modules import MaskedCategorical
 from gym.spaces import Discrete, Box, MultiDiscrete
 from sb3_contrib.common.maskable.callbacks import MaskableEvalCallback
 from stable_baselines3.common.callbacks import EvalCallback
@@ -264,11 +265,11 @@ class ProbabilitiesActionMaskEnv(gym.ActionWrapper):
                 self.action_space.high - self.action_space.low
             )  # transform normalized action vector [-1,1] to [0,1]
 
-        action_mask_tensor = torch.from_numpy(self.env.valid_action_mask()).float()
-        masked_action = torch.from_numpy(action).float() * action_mask_tensor
+        action_mask_tensor = torch.from_numpy((self.env.valid_action_mask()).flatten())
+        action_tensor = torch.from_numpy(action).float()
 
-        normalized_probs = torch.tensor(masked_action / masked_action.sum())
-        action_probs = Categorical(probs=normalized_probs)
+        normalized_probs = torch.tensor(action_tensor / action_tensor.sum())
+        action_probs = MaskedCategorical(probs=normalized_probs, mask=action_mask_tensor)
         return action_probs
 
 class ActionWrapper_DiscreteWithBuffer(gym.ActionWrapper):

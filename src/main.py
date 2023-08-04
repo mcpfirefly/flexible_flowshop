@@ -7,12 +7,13 @@ from experiments.experiments import (
     PPO_Simple_Run,
     PPO_Test_Trained,
     PPO_Imitation_DAgger,
+    SAC_Discrete,
+    REDQ
 )
 
 
 @hydra.main(config_path="../conf", config_name="config", version_base=None)
 def main(cfg: DictConfig) -> DictConfig:
-
     for key, value in cfg.params[0].items():
         if value == "None":
             cfg.params[0][key] = None
@@ -29,5 +30,10 @@ def main(cfg: DictConfig) -> DictConfig:
         PPO_Test_Trained(study).PPO_Test_Trained_Run()
     elif config.test == "imitation_dagger":
         PPO_Imitation_DAgger(study).PPO_Imitation_DAgger_run()
+    elif config.test == "sac_discrete":
+        SAC_Discrete(study).SAC_Discrete_run()
+    elif config.test == "redq":
+        REDQ(study).REDQ_run()
+
 if __name__ == "__main__":
     main()

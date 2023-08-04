@@ -298,7 +298,8 @@ def generate_schedule_first_stage(
     if first_stage_operations:
         first_stage_in_progress = 1
         if generate_heuristic_schedules == "FIFO" or heuristics_policy_rl == "FIFO":
-            action = np.random.choice(first_stage_operations,heuristics_policy_rl)
+            action = np.random.choice(current_legal_operations)
+            action = search_actions_FIFO(env,action, first_stage_operations,heuristics_policy_rl)
         elif generate_heuristic_schedules == "EDD" or heuristics_policy_rl == "EDD":
             action = search_actions_EDD(env, first_stage_operations,heuristics_policy_rl)
         elif generate_heuristic_schedules == "SPT" or heuristics_policy_rl == "SPT":
