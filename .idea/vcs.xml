@@ -2,11 +2,5 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/unstable_baselines" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/unstable_baselines/unstable_baselines/envs/Metaworld" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/unstable_baselines/unstable_baselines/hierarchical_rl" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/unstable_baselines/unstable_baselines/meta_rl" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/unstable_baselines/unstable_baselines/model_based_rl" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/unstable_baselines/unstable_baselines/offline_rl" vcs="Git" />
   </component>
 </project>
