@@ -5,9 +5,7 @@ from torchrl.modules import MaskedCategorical
 from gym.spaces import Discrete, Box, MultiDiscrete
 from sb3_contrib.common.maskable.callbacks import MaskableEvalCallback
 from stable_baselines3.common.callbacks import EvalCallback
-from flexible_flow_shop.resources.functions.scheduling_functions import (
-    get_action_heuristics,
-)
+
 
 class CustomMaskableEvalCallback(MaskableEvalCallback):
     def __init__(
@@ -268,7 +266,7 @@ class ProbabilitiesActionMaskEnv(gym.ActionWrapper):
         action_mask_tensor = torch.from_numpy((self.env.valid_action_mask()).flatten())
         action_tensor = torch.from_numpy(action).float()
 
-        normalized_probs = torch.tensor(action_tensor / action_tensor.sum())
+        normalized_probs = torch.tensor(action_tensor / action_tensor.sum() + 1e-4)
         action_probs = MaskedCategorical(probs=normalized_probs, mask=action_mask_tensor)
         return action_probs
 

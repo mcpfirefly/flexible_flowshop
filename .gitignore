@@ -315,7 +315,4 @@ cython_debug/
 #.idea/
 
 # Other
-**/logs
-logs/
-/output
-/unstable_baselines
+outputs/

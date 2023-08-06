@@ -2,44 +2,44 @@ import gym, itertools
 import numpy as np
 import simpy
 
-from custom_plotters.gantt_plotter.GanttPlotter import GanttJob, GanttPlotter, JobTypes
-from flexible_flow_shop.resources.functions.class_objects import Factory, Order
-from flexible_flow_shop.resources.functions.scheduling_functions import generate_results
-from flexible_flow_shop.resources.functions.scheduling_functions import processing_times
-from flexible_flow_shop.resources.functions.scheduling_functions import changeover_times
-from flexible_flow_shop.resources.functions.scheduling_functions import get_timestep
-from flexible_flow_shop.resources.functions.scheduling_functions import (
+from src.custom_plotters.gantt_plotter.GanttPlotter import GanttJob, GanttPlotter, JobTypes
+from src.flexible_flow_shop.resources.functions.class_objects import Factory, Order
+from src.flexible_flow_shop.resources.functions.scheduling_functions import generate_results
+from src.flexible_flow_shop.resources.functions.scheduling_functions import processing_times
+from src.flexible_flow_shop.resources.functions.scheduling_functions import changeover_times
+from src.flexible_flow_shop.resources.functions.scheduling_functions import get_timestep
+from src.flexible_flow_shop.resources.functions.scheduling_functions import (
     get_impact_factor,
 )
 
-from flexible_flow_shop.resources.functions.scheduling_functions import (
+from src.flexible_flow_shop.resources.functions.scheduling_functions import (
     get_action_heuristics,
 )
 
-from flexible_flow_shop.resources.functions.scheduling_functions import (
+from src.flexible_flow_shop.resources.functions.scheduling_functions import (
     prepare_historical_and_flags,
 )
-from flexible_flow_shop.resources.functions.scheduling_functions import (
+from src.flexible_flow_shop.resources.functions.scheduling_functions import (
     update_time_arrays,
 )
-from flexible_flow_shop.resources.functions.scheduling_functions import (
+from src.flexible_flow_shop.resources.functions.scheduling_functions import (
     current_variables,
 )
-from flexible_flow_shop.resources.functions.scheduling_functions import past_variables
-from flexible_flow_shop.resources.functions.scheduling_functions import (
+from src.flexible_flow_shop.resources.functions.scheduling_functions import past_variables
+from src.flexible_flow_shop.resources.functions.scheduling_functions import (
     flag_as_legals_in_next_stage,
     get_orders_next_stage,
 )
-from flexible_flow_shop.resources.functions.scheduling_functions import (
+from src.flexible_flow_shop.resources.functions.scheduling_functions import (
     assign_position_in_schedule,
 )
-from flexible_flow_shop.resources.functions.scheduling_functions import (
+from src.flexible_flow_shop.resources.functions.scheduling_functions import (
     disable_operations_of_same_job_in_same_stage,
 )
-from flexible_flow_shop.resources.functions.scheduling_functions import (
+from src.flexible_flow_shop.resources.functions.scheduling_functions import (
     set_time_machines_idle,
 )
-from flexible_flow_shop.resources.functions.scheduling_functions import (
+from src.flexible_flow_shop.resources.functions.scheduling_functions import (
     legalize_with_release_dates,
     GeneratePreliminaryHeuristicResultsFiles,
 )
@@ -184,7 +184,7 @@ class flexible_flow_shop(gym.Env):
 
     def valid_action_mask(self):
         """Only valid for discrete environment. Used with MaskablePPO"""
-        if self.legal_operations.any():
+        if self.legal_operations[:len(self.legal_operations)-1].any():
             self.legal_operations[-1] = False
         else:
             self.legal_operations[-1] = True
@@ -228,6 +228,7 @@ class flexible_flow_shop(gym.Env):
             mask = list(itertools.chain.from_iterable(mask))
 
         mask = np.array(mask, dtype=bool)
+        mask = mask.flatten()
         return mask
 
     def _scheduling(self, env, action):
@@ -434,7 +435,7 @@ class flexible_flow_shop(gym.Env):
                 stage = i + 1  # for #print statements
                 # Arrival of a product to a stage
                 order.time_arriving_stage = self.env.now
-                print("{} arrives at stage {} at {} and waits for machine allocation.".format(order.product_code, stage, order.time_arriving_stage))
+                #print("{} arrives at stage {} at {} and waits for machine allocation.".format(order.product_code, stage, order.time_arriving_stage))
 
                 self.machine_queue[order.machine] += 1
 
@@ -490,8 +491,8 @@ class flexible_flow_shop(gym.Env):
                     #    order.waiting_value = np.around((order.time_start_process - self.time_left_previous_stage[order.order_id]),4)
                     #    self.operation_waiting_time[order.position_in_schedule] = order.waiting_value
                     #    self.job_waiting_time[order.order_id] += self.operation_waiting_time[order.position_in_schedule]
-                    print("{} waited {} in queue to enter stage {}.".format(order.product_code, order.waiting_value, stage))
-                    print("{} starts processing in machine {} at {}.".format(order.product_code,order.machine,order.time_start_process))
+                    #print("{} waited {} in queue to enter stage {}.".format(order.product_code, order.waiting_value, stage))
+                    #print("{} starts processing in machine {} at {}.".format(order.product_code,order.machine,order.time_start_process))
                     process_time = processing_times(
                         self, env, self.study.PROCESSING_TIMES, order, order.machine_id
                     )
@@ -505,7 +506,7 @@ class flexible_flow_shop(gym.Env):
                     order.processing_value = (
                         order.time_leaving_stage - order.time_start_process
                     )
-                    print("{} left stage {} at {}.".format(order.product_code, stage, order.time_leaving_stage))
+                    #print("{} left stage {} at {}.".format(order.product_code, stage, order.time_leaving_stage))
                     self.sim_duration = env.now
                     self.time_left_previous_stage[
                         order.order_id
@@ -590,7 +591,7 @@ class flexible_flow_shop(gym.Env):
                         )
                     if changeover_condition:
                         order.time_changeover_starts = self.env.now
-                        print("Changeover in machine {} starts at {}.".format(order.machine, order.time_changeover_starts))
+                        #print("Changeover in machine {} starts at {}.".format(order.machine, order.time_changeover_starts))
                         # While no other orders have been allocated do:
                         while len(self.historical_selection[order.machine]) == 0:
                             # While there is still no next order, keep the machine "busy" and perform a "dummy"
@@ -649,7 +650,7 @@ class flexible_flow_shop(gym.Env):
                         )
                         self.cumulative_changeover += order.changeover_value
                         self.all_changeover_costs += order.changeover_cost
-                        print("Changeover to receive {}  in machine {} finished at {}.".format(next_order.product_code,order.machine,order.time_changeover_starts + order.changeover_value))
+                        #print("Changeover to receive {}  in machine {} finished at {}.".format(next_order.product_code,order.machine,order.time_changeover_starts + order.changeover_value))
 
                     if order.changeover_value != 0:
                         changeover_task_object = GanttJob(
@@ -677,7 +678,7 @@ class flexible_flow_shop(gym.Env):
         and receives the self.observation, self.reward, terminated and truncated signals.
         """
 
-        if (self.study.action_space == "continuous" or (self.study.masking == False and self.study.action_space == "discrete")) and not (self.legal_operations[action]):
+        if not self.legal_operations[action]:
             self.episode_length += 1
 
             if self.finished_orders.all() or np.round(self.completion_score, 5) == 1.0:
@@ -691,10 +692,10 @@ class flexible_flow_shop(gym.Env):
                 print("Makespan value: {}".format(self.sim_duration))
                 print("OCC value: {}".format(self.oc_costs))
                 print("WL value: {}".format(self.weighted_total_lateness))
-
+                print("Reward: {}".format(self.total_reward))
                 if (
-                    self.sim_duration < 35
-                    or self.oc_costs < 80
+                    self.sim_duration < 30
+                    or self.oc_costs < 70
                     or self.weighted_total_lateness < 250
                 ):
                     self.render()
@@ -708,8 +709,7 @@ class flexible_flow_shop(gym.Env):
                     )
                 )
                 print("Episode length: {}".format(self.episode_length))
-                if self.completion_score >= 75:
-                    self.render()
+                self.render()
                 print("Makespan value: {}".format(self.sim_duration))
                 print("OCC value: {}".format(self.oc_costs))
                 print("WL value: {}".format(self.weighted_total_lateness))
@@ -786,12 +786,12 @@ class flexible_flow_shop(gym.Env):
                 print("OCC value: {}".format(self.oc_costs))
                 print("WL value: {}".format(self.weighted_total_lateness))
                 print("Reward: {}".format(self.total_reward))
-                # if solution_hints == "kopanos":
-                #    if self.sim_duration < 28 or self.oc_costs < 65 or self.weighted_total_lateness < 200:
-                #       self.render()
-                # else:
-                #    if self.sim_duration < 35 or self.oc_costs < 80 or self.weighted_total_lateness < 250:
-                #        self.render()
+                if self.study.solution_hints == "kopanos":
+                    if self.sim_duration < 28 or self.oc_costs < 65 or self.weighted_total_lateness < 200:
+                        self.render()
+                else:
+                    if self.sim_duration < 30 or self.oc_costs < 70 or self.weighted_total_lateness < 250:
+                        self.render()
                 self.done = True
 
             if self.sim_duration >= 100 or self.episode_length > 2500:
@@ -802,12 +802,12 @@ class flexible_flow_shop(gym.Env):
                     )
                 )
                 print("Episode length: {}".format(self.episode_length))
-                # if self.completion_score >= 75:
-                #    self.render()
+                self.render()
                 print("Makespan value: {}".format(self.sim_duration))
                 print("OCC value: {}".format(self.oc_costs))
                 print("WL value: {}".format(self.weighted_total_lateness))
 
+                print("Reward: {}".format(self.total_reward))
                 self.done = True
 
             return self._get_observation(), self.reward, self.done, info

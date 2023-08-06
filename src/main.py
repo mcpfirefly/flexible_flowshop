@@ -1,7 +1,7 @@
 import hydra
 from omegaconf import DictConfig
-from flexible_flow_shop.resources.functions.global_variables import StudyCase
-from experiments.experiments import (
+from src.flexible_flow_shop.resources.functions.global_variables import StudyCase
+from src.experiments.experiments import (
     PPO_Optuna,
     PPO_Manual_Parameters,
     PPO_Simple_Run,

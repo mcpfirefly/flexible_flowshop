@@ -1,27 +1,27 @@
-from unstable_baselines.baselines.redq.trainer import REDQTrainer
-from unstable_baselines.common.logger import Logger
-from unstable_baselines.baselines.sac.trainer import SACTrainer
-from unstable_baselines.baselines.sac.agent import SACAgent
-from unstable_baselines.common.util import set_device_and_logger, load_config, set_global_seed
-from unstable_baselines.common.buffer import ReplayBuffer
+from src.experiments.rl_algorithms.unstable_baselines.baselines.redq.trainer import REDQTrainer
+from src.experiments.rl_algorithms.unstable_baselines.common.logger import Logger
+from src.experiments.rl_algorithms.unstable_baselines.baselines.sac.trainer import SACTrainer
+from src.experiments.rl_algorithms.unstable_baselines.baselines.sac.agent import SACAgent
+from src.experiments.rl_algorithms.unstable_baselines.common.util import set_device_and_logger, load_config, set_global_seed
+from src.experiments.rl_algorithms.unstable_baselines.common.buffer import ReplayBuffer
 
-from unstable_baselines.baselines.redq.agent import REDQAgent
-from flexible_flow_shop.resources.functions.main_wrapper import MakeEnvironment
-from flexible_flow_shop.environment import flexible_flow_shop
-from experiments.rl_algorithms.maskable_ppo import MaskablePPO
-from experiments.rl_algorithms.ppo import PPO
-from flexible_flow_shop.resources.functions.custom_wrappers import (
+from src.experiments.rl_algorithms.unstable_baselines.baselines.redq.agent import REDQAgent
+from src.flexible_flow_shop.resources.functions.main_wrapper import MakeEnvironment
+from src.flexible_flow_shop.environment import flexible_flow_shop
+from src.experiments.rl_algorithms.maskable_ppo import MaskablePPO
+from src.experiments.rl_algorithms.ppo import PPO
+from src.flexible_flow_shop.resources.functions.custom_wrappers import (
     CustomMaskableEvalCallback as MaskableEvalCallback,
 )
-from flexible_flow_shop.resources.functions.custom_wrappers import (
+from src.flexible_flow_shop.resources.functions.custom_wrappers import (
     CustomEvalCallback as EvalCallback,
 )
-from flexible_flow_shop.resources.functions.scheduling_functions import (
+from src.flexible_flow_shop.resources.functions.scheduling_functions import (
     get_action_heuristics,
     GenerateHeuristicResultsFiles,
 )
 
-from custom_plotters.raincloud_plotter.raincloud_plotter import raincloud_plotter
+from src.custom_plotters.raincloud_plotter.raincloud_plotter import raincloud_plotter
 from stable_baselines3.common.evaluation import evaluate_policy
 
 import pandas as pd
@@ -905,7 +905,7 @@ class SAC_Discrete:
             "update_target_network_interval": 1,
             "target_smoothing_tau": 0.005,
             "alpha": 0.2,
-            "reward_scale": 1.0,
+            "reward_scale": 5.0,
             "q_network":{
               "network_params": [("mlp", 64), ("mlp", 64),("mlp", 64), ("mlp", 64)],
               "optimizer_class": "Adam",
@@ -937,7 +937,7 @@ class SAC_Discrete:
             "random_policy_timestep": 1000,
             "save_video_demo_interval": -1,
             "log_interval": 100,
-            "max_trajectory_length": 1000
+            "max_trajectory_length": 2000
           }
         }
 

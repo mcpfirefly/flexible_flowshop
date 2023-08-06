@@ -10,10 +10,10 @@
 # config.yaml
 
 params:
-  - N_TIMESTEPS: 100000
-    seed: 0
+  - N_TIMESTEPS: 500000
+    seed: 1
     masking: True
-    reward: MAKESPAN
+    reward: OCC
     buffer_usage: no_buffers
     time_in_buffer_custom: 1
     workbook: kopanos
@@ -22,6 +22,6 @@ params:
     solution_hints: None
     products_number: 30
     generate_heuristic_schedules: None
-    heuristics_policy_rl: SPT
+    heuristics_policy_rl: None
     recreate_solution: None
-    test: ppo_manual
+    test: sac_discrete
