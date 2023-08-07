@@ -23,7 +23,7 @@ from src.flexible_flow_shop.resources.functions.scheduling_functions import (
 
 from src.custom_plotters.raincloud_plotter.raincloud_plotter import raincloud_plotter
 from stable_baselines3.common.evaluation import evaluate_policy
-
+from src.experiments.rl_algorithms.unstable_baselines.baselines.sac.sac_discrete_args import sac_args
 import pandas as pd
 import numpy as np
 import optuna, tempfile, gym, torch, datetime, os
@@ -893,53 +893,7 @@ class SAC_Discrete:
         self.eval_env = make_environment(study, "_evaluation")
 
     def SAC_Discrete_run(self):
-        args = {
-          "env_name": "",
-          "env":{
-              },
-          "buffer":{
-            "max_buffer_size": 100000
-          },
-          "agent":{
-            "gamma": 0.99,
-            "update_target_network_interval": 1,
-            "target_smoothing_tau": 0.005,
-            "alpha": 0.2,
-            "reward_scale": 5.0,
-            "q_network":{
-              "network_params": [("mlp", 64), ("mlp", 64),("mlp", 64), ("mlp", 64)],
-              "optimizer_class": "Adam",
-              "learning_rate":0.0003,
-              "act_fn": "relu",
-              "out_act_fn": "identity"
-            },
-            "policy_network":{
-              "network_params": [("mlp", 64), ("mlp", 64),("mlp", 64), ("mlp", 64)],
-              "optimizer_class": "Adam",
-              "learning_rate":0.0003,
-              "act_fn": "relu",
-              "out_act_fn": "identity",
-            },
-            "entropy":{
-              "automatic_tuning": True,
-              "learning_rate": 0.0003,
-              "optimizer_class": "Adam",
-              "scale": 0.5
-            }
-          },
-          "trainer":{
-            "max_env_steps": self.N_TIMESTEPS,
-            "batch_size": 256,
-            "eval_interval": self.EVAL_FREQ,
-            "num_eval_trajectories": self.N_EVAL_EPISODES,
-            "snapshot_interval": 10000,
-            "start_timestep": 2000,
-            "random_policy_timestep": 1000,
-            "save_video_demo_interval": -1,
-            "log_interval": 100,
-            "max_trajectory_length": 2000
-          }
-        }
+        args = sac_args(self)
 
         # set global seed
         set_global_seed(self.seed)

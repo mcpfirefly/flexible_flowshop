@@ -10,10 +10,10 @@
 # config.yaml
 
 params:
-  - N_TIMESTEPS: 500000
-    seed: 1
+  - N_TIMESTEPS: 100000
+    seed: 0
     masking: True
-    reward: MAKESPAN
+    reward: OCC
     buffer_usage: no_buffers
     time_in_buffer_custom: 1
     workbook: kopanos
