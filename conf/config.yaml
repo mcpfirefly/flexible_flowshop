@@ -13,7 +13,7 @@ params:
   - N_TIMESTEPS: 500000
     seed: 1
     masking: True
-    reward: OCC
+    reward: MAKESPAN
     buffer_usage: no_buffers
     time_in_buffer_custom: 1
     workbook: kopanos
