@@ -24,7 +24,7 @@ from src.flexible_flow_shop.resources.functions.scheduling_functions import (
 from src.custom_plotters.raincloud_plotter.raincloud_plotter import raincloud_plotter
 from stable_baselines3.common.evaluation import evaluate_policy
 from src.experiments.rl_algorithms.unstable_baselines.baselines.sac.sac_discrete_args import sac_args
-from src.experiments.rl_algorithms.unstable_baselines.baselines.sac.sac_discrete_args import redq_args
+from src.experiments.rl_algorithms.unstable_baselines.baselines.redq.redq_args import redq_args
 import pandas as pd
 import numpy as np
 import optuna, tempfile, gym, torch, datetime, os

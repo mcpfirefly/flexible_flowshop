@@ -10,7 +10,7 @@
 # config.yaml
 
 params:
-  - N_TIMESTEPS: 100000
+  - N_TIMESTEPS: 5000000
     seed: 0
     masking: True
     reward: OCC
