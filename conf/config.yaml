@@ -25,3 +25,4 @@ params:
     heuristics_policy_rl: None
     recreate_solution: None
     test: sac_discrete_optuna
+    optuna_trials: 5
