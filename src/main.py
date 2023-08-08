@@ -8,7 +8,8 @@ from src.experiments.experiments import (
     PPO_Test_Trained,
     PPO_Imitation_DAgger,
     SAC_Discrete,
-    REDQ
+    REDQ,
+    optuna_SAC_discrete
 )
 
 
@@ -34,6 +35,8 @@ def main(cfg: DictConfig) -> DictConfig:
         SAC_Discrete(study).SAC_Discrete_run()
     elif config.test == "redq":
         REDQ(study).REDQ_run()
+    elif config.test == "sac_discrete_optuna":
+        optuna_SAC_discrete(study).optuna_SAC_discrete_run()
 
 if __name__ == "__main__":
     main()

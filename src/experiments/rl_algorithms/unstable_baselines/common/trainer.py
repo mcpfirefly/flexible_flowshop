@@ -26,6 +26,7 @@ class BaseTrainer():
         self.snapshot_interval = snapshot_interval
         self.last_log_timestep = 0
         self.last_eval_timestep = 0
+        self.last_mean_return = 0
         self.last_snapshot_timestep = 0
         self.last_video_demo_timestep = 0
         pass
@@ -39,7 +40,11 @@ class BaseTrainer():
 
     def post_step(self, timestep):
         log_dict = {}
-        if timestep % self.eval_interval == 0 or timestep - self.last_eval_timestep > self.eval_interval:
+        if timestep == "get_last_mean_reward":
+            ret_val = self.last_mean_return
+            return ret_val
+
+        elif timestep % self.eval_interval == 0 or timestep - self.last_eval_timestep > self.eval_interval:
             eval_start_time = time()
             log_dict.update(self.evaluate())
             eval_used_time = time() - eval_start_time
@@ -50,7 +55,7 @@ class BaseTrainer():
             summary_str = "Timestep:{}\tEvaluation return {:02f}".format(timestep, avg_test_return)
             util.logger.log_str(summary_str)
             self.last_eval_timestep = timestep
-
+            self.last_mean_return = avg_test_return
 
 
 

@@ -1012,3 +1012,149 @@ class REDQ:
         trainer.train()
 
 
+
+class optuna_SAC_discrete:
+
+    def __init__(self, study):
+        self.DEVICE = torch.device("cpu")
+        self.initialize_global_variables(study)
+        self.N_TRIALS = 5
+        self.N_STARTUP_TRIALS = 1
+        self.N_EVALUATIONS = self.N_TIMESTEPS / 1000  # evaluations per trial
+        self.EVAL_FREQ = int(self.N_TIMESTEPS / self.N_EVALUATIONS)
+        self.N_EVAL_EPISODES = 5
+        self.optuna_log_path = "outputs/{}/{}/Training/Optuna/Logs".format(
+            self.experiment_folder, self.test
+        )
+    def initialize_global_variables(self, study):
+        self.N_TIMESTEPS = study.N_TIMESTEPS  # for every trial
+        self.ORDERS = study.ORDERS
+        self.CHANGEOVER = study.CHANGEOVER
+        self.recreate_solution = study.recreate_solution
+        self.generate_heuristic_schedules = study.generate_heuristic_schedules
+        self.test = study.test
+        self.experiment_folder = study.experiment_folder
+        self.seed = study.seed
+        self.masking = study.masking
+        self.solution_hints = study.solution_hints
+        self.reward = study.reward
+        self.obs_size = study.obs_size
+        self.action_space = study.action_space
+        self.buffer_usage = study.buffer_usage
+        self.experiment_date = study.experiment_date
+        self.experiment_time = study.experiment_time
+        self.config = study.config
+        self.log_path = study.log_path
+        self.best_model_save_path = study.best_model_save_path
+        self.train_env = make_environment(study, "_training")
+        self.eval_env = make_environment(study, "_evaluation")
+
+    def sample_sac_hyperparams(self, trial: optuna.Trial) -> Dict[str, Any]:
+        # Define your environment and agent configurations
+        args = sac_args(self)
+
+        # Define hyperparameter search space
+        args["agent"]["alpha"] = trial.suggest_float("alpha", 0.1, 1.0)
+        args["agent"]["q_network"]["learning_rate"] = trial.suggest_float("q_learning_rate", 1e-5, 1e-3)
+        args["agent"]["policy_network"]["learning_rate"] = trial.suggest_float("policy_learning_rate", 1e-5, 1e-3)
+        args["agent"]["entropy"]["learning_rate"] = trial.suggest_float("entropy_learning_rate", 1e-5, 1e-3)
+        args["agent"]["reward_scale"] = trial.suggest_float("reward_scale", 1.0, 10.0)
+
+        # Run your training and evaluation using the specified hyperparameters
+        # You need to implement your training loop here
+        # Return the value you want to minimize (e.g., makespan, costs, etc.)
+        return args
+
+    def objective(self, trial: optuna.Trial) -> float:
+        args = sac_args(self).copy()
+        args.update(self.sample_sac_hyperparams(trial))
+
+        # set global seed
+        set_global_seed(self.seed)
+
+        # initialize logger
+        env_name = args['env_name']
+        logger = Logger(self.log_path, env_name, self.seed, info_str="", print_to_terminal=True)
+
+        # set device and logger
+        set_device_and_logger(-1, logger)
+
+        # save args
+        logger.log_str_object("parameters", log_dict=args)
+
+        # initialize environment
+        logger.log_str("Initializing Environment")
+        train_env = self.train_env
+        eval_env = self.eval_env
+        observation_space = train_env.observation_space
+        action_space = train_env.action_space
+
+        # initialize buffer
+        logger.log_str("Initializing Buffer")
+        buffer = ReplayBuffer(observation_space, action_space, **args['buffer'])
+
+        # initialize agent
+        logger.log_str("Initializing Agent")
+        agent = SACAgent(observation_space, action_space, **args['agent'])
+
+        # initialize trainer
+        logger.log_str("Initializing Trainer")
+        trainer = SACTrainer(
+            agent,
+            train_env,
+            eval_env,
+            buffer,
+            load_path="",
+            **args['trainer']
+        )
+
+        logger.log_str("Started training")
+        trainer.train()
+        ret_eval = trainer.post_step("get_last_mean_reward")
+        print("objective function return value: ", ret_eval)
+        return ret_eval
+        {}
+    def optuna_SAC_discrete_run(self):
+        torch.set_num_threads(1)
+
+        sampler = TPESampler(n_startup_trials=self.N_STARTUP_TRIALS, seed=self.seed)
+        pruner = MedianPruner(
+            n_startup_trials=self.N_STARTUP_TRIALS, n_warmup_steps=self.N_TIMESTEPS // 3
+        )
+
+        study = optuna.create_study(
+            storage="sqlite:///outputs/{}/Optuna_Trial.db".format(
+                self.experiment_folder
+            ),
+            study_name="Optuna_Trial",
+            sampler=sampler,
+            pruner=pruner,
+            direction="maximize",
+        )
+
+        print("created optuna study")
+        print("start study optimize")
+        study.optimize(self.objective, n_trials=self.N_TRIALS)
+        print("study optimize finished")
+
+        print("Number of finished trials: ", len(study.trials))
+
+        print("Best trial:")
+        trial = study.best_trial
+
+        print("  Value: ", trial.value)
+
+        with open("best_trial.txt", "w") as f:
+            print("Best trial:", file=f)
+            print("  Value: ", trial.value, file=f)
+            print("  Params: ", file=f)
+            for key, value in trial.params.items():
+                print("    {}: {}".format(key, value), file=f)
+
+        print("  Params: ")
+        for key, value in trial.params.items():
+            print("    {}: {}".format(key, value))
+
+        print("  User attrs:")
+        for key, value in trial.user_attrs.items():
+            print("    {}: {}".format(key, value))
