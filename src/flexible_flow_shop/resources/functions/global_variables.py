@@ -36,6 +36,7 @@ class StudyCase:
         self.recreate_solution = cfg.recreate_solution
         self.test = cfg.test
         self.workbook = cfg.workbook
+        self.optuna_trials = cfg.optuna_trials
         np.random.seed(self.seed)
 
         if self.workbook == "kopanos" and self.recreate_solution is None:

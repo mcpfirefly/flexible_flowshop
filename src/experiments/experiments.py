@@ -1019,7 +1019,7 @@ class optuna_SAC_discrete:
     def __init__(self, study):
         self.DEVICE = torch.device("cpu")
         self.initialize_global_variables(study)
-        self.N_TRIALS = 5
+        self.N_TRIALS = self.optuna_trials
         self.N_STARTUP_TRIALS = 1
         self.N_EVALUATIONS = self.N_TIMESTEPS / 1000  # evaluations per trial
         self.EVAL_FREQ = int(self.N_TIMESTEPS / self.N_EVALUATIONS)
@@ -1046,6 +1046,7 @@ class optuna_SAC_discrete:
         self.experiment_time = study.experiment_time
         self.config = study.config
         self.log_path = study.log_path
+        self.optuna_trials = study.optuna_trials
         self.best_model_save_path = study.best_model_save_path
         self.train_env = make_environment(study, "_training")
         self.eval_env = make_environment(study, "_evaluation")
