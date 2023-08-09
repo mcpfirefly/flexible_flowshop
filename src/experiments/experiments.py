@@ -2,7 +2,7 @@ from src.experiments.rl_algorithms.unstable_baselines.baselines.redq.trainer imp
 from src.experiments.rl_algorithms.unstable_baselines.common.logger import Logger
 from src.experiments.rl_algorithms.unstable_baselines.baselines.sac.trainer import SACTrainer
 from src.experiments.rl_algorithms.unstable_baselines.baselines.sac.agent import SACAgent
-from src.experiments.rl_algorithms.unstable_baselines.common.util import set_device_and_logger, load_config, set_global_seed
+from src.experiments.rl_algorithms.unstable_baselines.common.util import set_device_and_logger, set_global_seed
 from src.experiments.rl_algorithms.unstable_baselines.common.buffer import ReplayBuffer
 
 from src.experiments.rl_algorithms.unstable_baselines.baselines.redq.agent import REDQAgent
@@ -23,8 +23,8 @@ from src.flexible_flow_shop.resources.functions.scheduling_functions import (
 
 from src.custom_plotters.raincloud_plotter.raincloud_plotter import raincloud_plotter
 from stable_baselines3.common.evaluation import evaluate_policy
-from src.experiments.rl_algorithms.unstable_baselines.baselines.sac.sac_discrete_args import sac_args
-from src.experiments.rl_algorithms.unstable_baselines.baselines.redq.redq_args import redq_args
+from src.experiments.rl_algorithms.unstable_baselines.baselines.sac.configs.sac_discrete_args import *
+from src.experiments.rl_algorithms.unstable_baselines.baselines.redq.redq_args import *
 import pandas as pd
 import numpy as np
 import optuna, tempfile, gym, torch, datetime, os
@@ -894,8 +894,9 @@ class SAC_Discrete:
         self.eval_env = make_environment(study, "_evaluation")
 
     def SAC_Discrete_run(self):
-        args = sac_args(self)
-
+        args = sac_args_default(self).copy()
+        if self.reward == "MAKESPAN":
+            args.update(sac_args_optuna_makespan(self))
         # set global seed
         set_global_seed(self.seed)
 
@@ -1051,7 +1052,7 @@ class optuna_SAC_discrete:
 
     def sample_sac_hyperparams(self, trial: optuna.Trial) -> Dict[str, Any]:
         # Define your environment and agent configurations
-        args = sac_args(self)
+        args = sac_args_default(self)
 
         # Define hyperparameter search space
         args["agent"]["alpha"] = trial.suggest_float("alpha", 0.1, 1.0)
@@ -1066,7 +1067,7 @@ class optuna_SAC_discrete:
         return args
 
     def objective(self, trial: optuna.Trial) -> float:
-        args = sac_args(self).copy()
+        args = sac_args_default(self).copy()
         args.update(self.sample_sac_hyperparams(trial))
 
         # set global seed
