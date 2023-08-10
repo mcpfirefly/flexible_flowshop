@@ -1,0 +1,16 @@
+params:
+- N_TIMESTEPS: 100000
+  seed: 1
+  masking: true
+  reward: MAKESPAN
+  buffer_usage: no_buffers
+  time_in_buffer_custom: 1
+  workbook: kopanos
+  obs_size: big
+  action_space: discrete
+  solution_hints: None
+  products_number: 30
+  generate_heuristic_schedules: None
+  heuristics_policy_rl: None
+  recreate_solution: None
+  test: redq
