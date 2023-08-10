@@ -248,7 +248,6 @@ class PPO_Optuna:
                 trial,
                 n_eval_episodes=self.N_EVAL_EPISODES,
                 eval_freq=self.EVAL_FREQ,
-                deterministic=False,
                 best_model_save_path_in=self.best_model_save_path,
                 log_path_in=self.optuna_log_path,
             )
