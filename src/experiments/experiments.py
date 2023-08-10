@@ -1027,7 +1027,7 @@ class optuna_SAC_discrete:
         self.N_STARTUP_TRIALS = 1
         self.N_EVALUATIONS = self.N_TIMESTEPS / 1000  # evaluations per trial
         self.EVAL_FREQ = int(self.N_TIMESTEPS / self.N_EVALUATIONS)
-        self.N_EVAL_EPISODES = 15
+        self.N_EVAL_EPISODES = 10
         self.optuna_log_path = "outputs/{}/{}/Training/Optuna/Logs".format(
             self.experiment_folder, self.test
         )
