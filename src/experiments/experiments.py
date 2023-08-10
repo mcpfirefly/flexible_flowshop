@@ -155,7 +155,6 @@ class PPO_Optuna:
             trial: optuna.Trial,
             n_eval_episodes: int,
             eval_freq: int,
-            deterministic: bool = True,
             verbose: int = 1,
             best_model_save_path_in: str = "input path - best_model_save_path",
             log_path_in: str = "input path - log_path ",
@@ -164,7 +163,6 @@ class PPO_Optuna:
                 eval_env=eval_env,
                 n_eval_episodes=n_eval_episodes,
                 eval_freq=eval_freq,
-                deterministic=deterministic,
                 verbose=verbose,
                 best_model_save_path=best_model_save_path_in,
                 log_path=log_path_in,
@@ -248,7 +246,6 @@ class PPO_Optuna:
                 trial,
                 n_eval_episodes=self.N_EVAL_EPISODES,
                 eval_freq=self.EVAL_FREQ,
-                deterministic=False,
                 best_model_save_path_in=self.best_model_save_path,
                 log_path_in=self.optuna_log_path,
             )
