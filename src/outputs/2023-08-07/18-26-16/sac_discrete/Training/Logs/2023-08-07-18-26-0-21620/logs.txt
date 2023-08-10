@@ -1,7 +1,0 @@
-2023-08-07 18:26:18:	logging to outputs/2023-08-07/18-26-16/sac_discrete/Training/Logs\2023-08-07-18-26-0-21620
-2023-08-07 18:26:18:	saved parameters.txt to outputs/2023-08-07/18-26-16/sac_discrete/Training/Logs\2023-08-07-18-26-0-21620\parameters.txt
-2023-08-07 18:26:18:	Initializing Environment
-2023-08-07 18:26:18:	Initializing Buffer
-2023-08-07 18:26:18:	Initializing Agent
-2023-08-07 18:26:18:	Initializing Trainer
-2023-08-07 18:26:18:	Started training
