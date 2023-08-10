@@ -955,7 +955,7 @@ class flexible_flow_shop(gym.Env):
         # machines_observations
         observation.append(self.current_operation_in_machine)
         observation.append(self.next_operation_in_machine)
-        observation.append((np.array(self.time_machines_idle_per_stage)).sum())
+        observation.append((np.array(self.time_machines_idle_per_stage,dtype=object)).sum())
         observation.append(self.machine_queue_list)
         # observation = np.ndarray.flatten(np.array(observation))
         observation = list(itertools.chain.from_iterable(observation))
@@ -1002,7 +1002,7 @@ class flexible_flow_shop(gym.Env):
         observation.append(self.time_until_job_done)
         observation.append(self.time_until_machine_free)
         # machines_observations
-        observation.append((np.array(self.time_machines_idle_per_stage)).sum())
+        observation.append((np.array(self.time_machines_idle_per_stage,dtype=object)).sum())
         observation.append(self.machine_queue_list)
         # observation = np.ndarray.flatten(np.array(observation))
         observation = list(itertools.chain.from_iterable(observation))
@@ -1048,7 +1048,7 @@ class flexible_flow_shop(gym.Env):
         observation.append(self.time_until_job_done)
         observation.append(self.time_until_machine_free)
         # machines_observations
-        observation.append((np.array(self.time_machines_idle_per_stage)).sum())
+        observation.append((np.array(self.time_machines_idle_per_stage,dtype=object)).sum())
         observation.append(self.machine_queue_list)
         # observation = np.ndarray.flatten(np.array(observation))
 
