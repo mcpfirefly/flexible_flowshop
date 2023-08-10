@@ -112,6 +112,16 @@ class CustomEvalCallback(EvalCallback):
             )
         return continue_training
 
+class RewardWrapper_TASSEL(gym.RewardWrapper):
+    def __init__(self, env):
+        super(RewardWrapper_TASSEL, self).__init__(env)
+
+    def reward(self, reward):
+        # Modify the reward calculation here
+        modified_reward = self.tassel_reward + reward
+        return modified_reward
+
+
 
 class RewardWrapper_MAKESPAN(gym.RewardWrapper):
     def __init__(self, env):

@@ -1,6 +1,6 @@
 #   workbooks = {kopanos, general}
 #   action_space_types = {discrete, discrete_probs, continuous}
-#   rewards = {OCC, MAKESPAN, WL, LENGTH, COMPLETION}
+#   rewards = {OCC, MAKESPAN, WL, LENGTH, COMPLETION, TASSEL}
 #   obs_sizes = {small, medium, big}
 #   products_number = {30, 60}
 #   buffer_usages = {no_buffers, always_buffers, random, agent_decides}
@@ -13,7 +13,7 @@ params:
   - N_TIMESTEPS: 10000
     seed: 1
     masking: True
-    reward: MAKESPAN
+    reward: TASSEL
     buffer_usage: no_buffers
     time_in_buffer_custom: 1
     workbook: kopanos

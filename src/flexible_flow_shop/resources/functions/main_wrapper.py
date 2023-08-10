@@ -71,6 +71,8 @@ def MakeEnvironment(
         env = RewardWrapper_LENGTH(env)
     elif reward == "COMPLETION":
         env = RewardWrapper_Completion(env)
+    elif reward == "TASSEL":
+        env = RewardWrapper_TASSEL(env)
     else:
         print(
             "No reward wrapper was selected! Default will be used instead: PENALIZE ILLEGAL ACTIONS, REWARD LEGAL ACTIONS"

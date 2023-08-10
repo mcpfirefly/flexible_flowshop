@@ -105,18 +105,43 @@ def update_time_arrays(self):
         [x - self.timestep for x in self.time_until_machine_free]
     )  # substract env.now
 
+def get_tassel_reward(self,action):
+
+    if action == len(self.study.ORDERS) or not(self.legal_operations[action]):
+        # If action is NOOP, consider holes in all machines.
+        tassel_processing_time = 0
+        tassel_machines_holes = sum(np.array(self.time_machines_idle_per_stage).sum())
+        tassel_reward = tassel_processing_time - tassel_machines_holes
+
+    elif self.machine_queue[self.orders[action].machine] >= self.MAX_QUEUE_SIZE:
+        # If action is legal, but machine is busy and queue is unavailable, consider holes from the corresponding stage
+        # plus remaining time until operation can enter the queue. This operation won't enter the schedule
+        stage = self.orders[action].stage
+        machine = self.orders[action].machine_id
+        tassel_processing_time = 0
+        tassel_machines_holes = sum(self.time_machines_idle_per_stage[stage]) + self.time_until_machine_free[machine]
+        tassel_reward = tassel_processing_time - tassel_machines_holes
+    else:
+        # if action is legal and machine or queue are directly available
+        stage = self.orders[action].stage
+        machine = self.orders[action].machine_id
+        tassel_processing_time = self.orders[action].processing_time
+        tassel_machines_holes = sum(self.time_machines_idle_per_stage[stage]) - self.time_machines_idle[machine]
+        tassel_reward = tassel_processing_time - tassel_machines_holes
+
+    return tassel_reward
 
 def set_time_machines_idle(self):
-    for i in range(len(self.time_machines_idle)):
-        if (
-            self.machines_idle[i][0] != 1
-        ):  # if the i machine is not active, then add up idle time
-            self.machines_idle[i][1] += self.timestep
-        else:
-            self.machines_idle[i][1] = 0
-        self.time_machines_idle[i] = self.machines_idle[i][1]
 
-
+    for stage, machines in enumerate(self.study.INDEX_MACHINES):
+        for machine, i in enumerate(machines):
+            if self.stage_progression[stage] < 0.999:
+                if self.legal_machines[i] and self.stage_visited_indicator[stage]:  # if the i machine is not active and the stage has started producing, then add up idle time
+                    self.time_machines_idle_per_stage[stage][machine] += self.timestep
+                else:
+                    self.time_machines_idle_per_stage[stage][machine] = 0
+            else:
+                self.time_machines_idle_per_stage[stage][machine] = 0
 def get_timestep(self, action):
     round_value = 3
     self.time_until_job_done = np.around(
@@ -139,8 +164,8 @@ def get_timestep(self, action):
         timestep = min_non_zero
         # print("NO OP: Go to the next time step until we have a legal action! Jump: {}".format(timestep))
 
-    elif self.orders[action].stage == 0:
-        timestep = 0.01
+    #elif self.orders[action].stage == 0:
+    #    timestep = 0.01
 
     elif self.legal_machines_per_stage[self.orders[action].stage].any() == True:
         timestep = 0.01

@@ -9,6 +9,7 @@ from src.flexible_flow_shop.resources.functions.scheduling_functions import proc
 from src.flexible_flow_shop.resources.functions.scheduling_functions import changeover_times
 from src.flexible_flow_shop.resources.functions.scheduling_functions import get_timestep
 from src.flexible_flow_shop.resources.functions.scheduling_functions import (
+    get_tassel_reward,
     check_if_can_be_legal_again,
     get_impact_factor,
 )
@@ -140,10 +141,8 @@ class flexible_flow_shop(gym.Env):
         self.scheduled_machines = np.zeros((self.study.N_OPERATIONS), dtype=np.int)
         self.stages_queue_size = np.zeros(len(self.study.STAGES), dtype=np.int)
         self.stage_progression = np.zeros(len(self.study.STAGES), dtype=np.float)
-        self.machines_idle = [
-            [0, 0] for i in range(len(self.study.MACHINES))
-        ]  # (active machine boolean,idle_time)
         self.time_machines_idle = np.zeros(len(self.study.MACHINES), dtype=np.float)
+        self.time_machines_idle_per_stage = self.time_machines_idle_per_stage = [[self.time_machines_idle[idx] for idx in stage_indices] for stage_indices in self.study.INDEX_MACHINES]
         self.completion_score = np.array(0, dtype=np.float)
         self.sim_duration = (
             0  # small positive constant to avoid issues when dividing over makespan
@@ -176,11 +175,16 @@ class flexible_flow_shop(gym.Env):
         self.original_history = [[] for i in self.study.STAGES]
         self.list_of_reamining_times = []
         self.remaining_time = 0
+        self.stage_visited_indicator  = [0 for i in self.study.STAGES]
         self.current_product_in_machine = [[] for i in self.study.MACHINES]
         self.heuristics_products_per_stage = [[] for i in self.study.STAGES]
         self.counter_positions_heuristics = [0 for i in self.study.STAGES]
         self.heuristics_solution = []
         self.counter_heuristics = 0
+        self.tassel_reward = 0
+        self.MAX_QUEUE_SIZE = np.inf
+        if self.study.generate_heuristic_schedules == None or self.study.heuristics_policy_rl == None:
+            self.MAX_QUEUE_SIZE = 1
         return self._get_observation()
 
     def valid_action_mask(self):
@@ -248,15 +252,13 @@ class flexible_flow_shop(gym.Env):
             self.sim_duration = env.now
 
         update_time_arrays(self)
-        self.completion_score = (sum(self.jobs_completion)) / len(
-            self.study.JOBS
-        )  # ratio between jobs progression and number of jobs
+        self.completion_score = (sum(self.jobs_completion)) / len(self.study.JOBS)  # ratio between jobs progression and number of jobs
         set_time_machines_idle(self)
         legalize_with_release_dates(self)
+        self.tassel_reward = get_tassel_reward(self,action)
 
         if self.legal_operations[action] and action != len(self.study.ORDERS):
             order = self.orders[action]
-
             if self.study.action_space == "continuous" or (self.study.masking == False and self.study.action_space == "discrete"):
                 self.reward = 1
 
@@ -406,12 +408,7 @@ class flexible_flow_shop(gym.Env):
 
                             yield self.factory.buffer[buffer_stage].release(request)
 
-            if self.study.generate_heuristic_schedules != None or self.study.heuristics_policy_rl != None:
-                MAX_QUEUE_SIZE = np.inf
-            else:
-                MAX_QUEUE_SIZE = 1
-
-            if self.machine_queue[order.machine] < MAX_QUEUE_SIZE:
+            if self.machine_queue[order.machine] < self.MAX_QUEUE_SIZE:
                 assign_position_in_schedule(
                     self, order, self.study.N_OPERATIONS, self.study.MACHINES
                 )
@@ -439,7 +436,6 @@ class flexible_flow_shop(gym.Env):
                 #print("{} arrives at stage {} at {} and waits for machine allocation.".format(order.product_code, stage, order.time_arriving_stage))
 
                 self.machine_queue[order.machine] += 1
-
                 with self.factory.stage[i].get(
                     lambda machine: machine == order.machine
                 ) as request:
@@ -453,6 +449,7 @@ class flexible_flow_shop(gym.Env):
                         order.product_code
                     )
                     yield request
+                    self.stage_visited_indicator[order.stage] = 1
                     self.legal_machines[order.machine_id] = 0
                     self.machine_queue[order.machine] -= 1
                     self.stage_progression[i] += 1 / (
@@ -464,7 +461,6 @@ class flexible_flow_shop(gym.Env):
                     ]
 
                     order.machine = request.value
-                    self.machines_idle[order.machine_id] = [1, 0]
 
                     order.time_start_process = self.env.now
                     self.schedule.append(order.operation_id)
@@ -576,7 +572,6 @@ class flexible_flow_shop(gym.Env):
                         )
                         self.weighted_total_lateness += order.weighted_lateness
 
-                    self.machines_idle[order.machine_id] = [0, 0]
 
                     #####Changeover######
 
@@ -674,7 +669,7 @@ class flexible_flow_shop(gym.Env):
                 if order.visited_buffer == True:
                     self.legal_operations[order.operation_id] = True
 
-                while self.machine_queue[order.machine] >= MAX_QUEUE_SIZE:
+                while self.machine_queue[order.machine] >= self.MAX_QUEUE_SIZE:
                     self.legal_operations[order.operation_id] = False
                     yield env.timeout(self.timestep)
 
@@ -763,7 +758,6 @@ class flexible_flow_shop(gym.Env):
                 np.around(self.episode_length_current, 4)
                 - np.around(self.episode_length_past, 4)
             )
-
             if self.study.reward == "MAKESPAN":
                 self.total_reward += self.makespan_reward + self.reward
             elif self.study.reward == "OCC":
@@ -772,6 +766,8 @@ class flexible_flow_shop(gym.Env):
                 self.total_reward += self.wl_reward + self.reward
             elif self.study.reward == "LENGTH":
                 self.total_reward += self.length_reward + self.reward
+            elif self.study.reward == "TASSEL":
+                self.total_reward += self.tassel_reward + self.reward
 
             info = {
                 "sim_duration": self.sim_duration,
@@ -959,7 +955,7 @@ class flexible_flow_shop(gym.Env):
         # machines_observations
         observation.append(self.current_operation_in_machine)
         observation.append(self.next_operation_in_machine)
-        observation.append(self.time_machines_idle)
+        observation.append((np.array(self.time_machines_idle_per_stage)).sum())
         observation.append(self.machine_queue_list)
         # observation = np.ndarray.flatten(np.array(observation))
         observation = list(itertools.chain.from_iterable(observation))
@@ -1006,7 +1002,7 @@ class flexible_flow_shop(gym.Env):
         observation.append(self.time_until_job_done)
         observation.append(self.time_until_machine_free)
         # machines_observations
-        observation.append(self.time_machines_idle)
+        observation.append((np.array(self.time_machines_idle_per_stage)).sum())
         observation.append(self.machine_queue_list)
         # observation = np.ndarray.flatten(np.array(observation))
         observation = list(itertools.chain.from_iterable(observation))
@@ -1052,7 +1048,7 @@ class flexible_flow_shop(gym.Env):
         observation.append(self.time_until_job_done)
         observation.append(self.time_until_machine_free)
         # machines_observations
-        observation.append(self.time_machines_idle)
+        observation.append((np.array(self.time_machines_idle_per_stage)).sum())
         observation.append(self.machine_queue_list)
         # observation = np.ndarray.flatten(np.array(observation))
 
