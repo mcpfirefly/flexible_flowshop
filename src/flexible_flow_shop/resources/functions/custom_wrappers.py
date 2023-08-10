@@ -266,7 +266,7 @@ class ProbabilitiesActionMaskEnv(gym.ActionWrapper):
         action_mask_tensor = torch.from_numpy((self.env.valid_action_mask()).flatten())
         action_tensor = torch.from_numpy(action).float()
 
-        normalized_probs = torch.tensor(action_tensor / action_tensor.sum() + 1e-4)
+        normalized_probs = (action_tensor / action_tensor.sum() + 1e-4).clone().detach()
         action_probs = MaskedCategorical(probs=normalized_probs, mask=action_mask_tensor)
         return action_probs
 

@@ -544,8 +544,7 @@ class PPO_Manual_Parameters:
         elif self.action_space == "continuous":
             kwargs.update(self.ppo_hyperparams_continuous())
         elif self.action_space == "discrete":
-            a=1
-            #kwargs.update(self.ppo_hyperparams_discrete())
+            kwargs.update(self.ppo_hyperparams_discrete())
 
         if self.masking and self.action_space == "discrete":
             model = MaskablePPO(**kwargs)
