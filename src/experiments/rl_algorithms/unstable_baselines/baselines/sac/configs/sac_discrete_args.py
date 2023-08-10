@@ -97,3 +97,52 @@ def sac_args_optuna_makespan(self):
     }
     return args
 
+
+def sac_args_optuna_occ(self):
+    args = {
+        "env_name": "",
+        "env": {},
+        "buffer": {
+            "max_buffer_size": 100000
+        },
+        "agent": {
+            "gamma": 0.99,
+            "update_target_network_interval": 1,
+            "target_smoothing_tau": 0.005,
+            "alpha": 0.14184671568858181,
+            "reward_scale": 1.7197931494643368,
+            "q_network": {
+                "network_params": [("mlp", 64), ("mlp", 64), ("mlp", 64), ("mlp", 64)],
+                "optimizer_class": "Adam",
+                "learning_rate": 0.0009278239905488108,
+                "act_fn": "relu",
+                "out_act_fn": "identity"
+            },
+            "policy_network": {
+                "network_params": [("mlp", 64), ("mlp", 64), ("mlp", 64), ("mlp", 64)],
+                "optimizer_class": "Adam",
+                "learning_rate": 0.0009743679938389017,
+                "act_fn": "relu",
+                "out_act_fn": "identity"
+            },
+            "entropy": {
+                "automatic_tuning": True,
+                "learning_rate": 2.922932255024571e-05,
+                "optimizer_class": "Adam",
+                "scale": 0.5
+            }
+        },
+        "trainer": {
+            "max_env_steps": self.N_TIMESTEPS,
+            "batch_size": 128,
+            "eval_interval": self.EVAL_FREQ,
+            "num_eval_trajectories": self.N_EVAL_EPISODES,
+            "snapshot_interval": 10000,
+            "start_timestep": 2000,
+            "random_policy_timestep": 1000,
+            "save_video_demo_interval": -1,
+            "log_interval": 100,
+            "max_trajectory_length": 2000
+        }
+    }
+    return args

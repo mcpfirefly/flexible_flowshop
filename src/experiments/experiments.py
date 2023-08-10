@@ -57,7 +57,7 @@ class PPO_Optuna:
     def __init__(self, study):
         self.DEVICE = torch.device("cpu")
         self.initialize_global_variables(study)
-        self.N_TRIALS = 5
+        self.N_TRIALS = self.optuna_trials
         self.N_STARTUP_TRIALS = 1
         self.N_EVALUATIONS = self.N_TIMESTEPS / 1000  # evaluations per trial
         self.EVAL_FREQ = int(self.N_TIMESTEPS / self.N_EVALUATIONS)
@@ -70,6 +70,7 @@ class PPO_Optuna:
         self.N_TIMESTEPS = study.N_TIMESTEPS  # for every trial
         self.ORDERS = study.ORDERS
         self.CHANGEOVER = study.CHANGEOVER
+        self.optuna_trials = study.optuna_trials
         self.recreate_solution = study.recreate_solution
         self.generate_heuristic_schedules = study.generate_heuristic_schedules
         self.test = study.test
@@ -897,6 +898,8 @@ class SAC_Discrete:
         args = sac_args_default(self).copy()
         if self.reward == "MAKESPAN":
             args.update(sac_args_optuna_makespan(self))
+        elif self.reward == "OCC":
+            args.update(sac_args_optuna_occ(self))
         # set global seed
         set_global_seed(self.seed)
 
