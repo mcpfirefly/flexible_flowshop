@@ -544,7 +544,8 @@ class PPO_Manual_Parameters:
         elif self.action_space == "continuous":
             kwargs.update(self.ppo_hyperparams_continuous())
         elif self.action_space == "discrete":
-            kwargs.update(self.ppo_hyperparams_discrete())
+            a=1
+            #kwargs.update(self.ppo_hyperparams_discrete())
 
         if self.masking and self.action_space == "discrete":
             model = MaskablePPO(**kwargs)
@@ -563,7 +564,7 @@ class PPO_Manual_Parameters:
                 eval_freq=self.EVAL_FREQ,
                 best_model_save_path=self.best_model_save_path,
                 verbose=2,
-                deterministic=False,
+                deterministic=True,
             )
 
         obs = model.env.reset()
@@ -701,6 +702,7 @@ class PPO_Simple_Run:
                     obs, reward, done, info = self.env.step(action)
 
                 else:  # SEND NOOP ACTION
+                    self.env.legal_operations[-1] = True
                     obs, reward, done, info = self.env.step(len(self.ORDERS))
 
             array_makespans = list(self.terminated_makespan.values())
@@ -733,8 +735,8 @@ class PPO_Simple_Run:
 
                     mean = np.mean(env_list_optimization_variable)
                     std = np.std(env_list_optimization_variable)
-                    upper_condition = mean + 0.1 * std
-                    lower_condition = mean - 0.1 * std
+                    upper_condition = mean + 0.01 * std
+                    lower_condition = mean - 0.01 * std
 
                     if (
                         env_variable <= upper_condition

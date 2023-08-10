@@ -76,7 +76,23 @@ def disable_operations_of_same_job_in_same_stage(self, order):
         ):
             self.legal_operations[order_same_stage.operation_id] = False
 
+def check_if_can_be_legal_again(self, order):
 
+    order_list = []
+    for j in range(len(self.orders)):
+        order_same_stage = self.orders[j]
+        if (
+            order_same_stage.order_id == order.order_id
+            and order_same_stage.stage == order.stage
+            and order_same_stage.machine != order.machine
+            and order_same_stage.scheduled_by_agent == True
+        ):
+            order_list.append(order_same_stage.operation_id)
+    if len(order_list) > 0:
+        return False
+
+    else:
+        return True
 def update_time_arrays(self):
     # Substract the current simulation time to the leftover time jobs array
     self.time_until_job_done = np.array(

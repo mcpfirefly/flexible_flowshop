@@ -9,6 +9,7 @@ from src.flexible_flow_shop.resources.functions.scheduling_functions import proc
 from src.flexible_flow_shop.resources.functions.scheduling_functions import changeover_times
 from src.flexible_flow_shop.resources.functions.scheduling_functions import get_timestep
 from src.flexible_flow_shop.resources.functions.scheduling_functions import (
+    check_if_can_be_legal_again,
     get_impact_factor,
 )
 
@@ -673,11 +674,20 @@ class flexible_flow_shop(gym.Env):
                 if order.visited_buffer == True:
                     self.legal_operations[order.operation_id] = True
 
+                while self.machine_queue[order.machine] >= MAX_QUEUE_SIZE:
+                    self.legal_operations[order.operation_id] = False
+                    yield env.timeout(self.timestep)
+
+                can_be_legal = check_if_can_be_legal_again(self, order)
+                if can_be_legal:
+                    self.legal_operations[order.operation_id] = True
+
     def step(self, action):
         """Function that sends an action to the scheduling function described above
         and receives the self.observation, self.reward, terminated and truncated signals.
         """
-
+        #print("Legal actions: {}".format(np.array(np.argwhere(self.legal_operations),dtype=int).flatten().tolist()))
+        #print("Action selected from legal actions: {}".format(action))
         if not self.legal_operations[action]:
             self.episode_length += 1
 
