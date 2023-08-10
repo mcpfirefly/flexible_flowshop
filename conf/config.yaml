@@ -10,7 +10,7 @@
 # config.yaml
 
 params:
-  - N_TIMESTEPS: 10000
+  - N_TIMESTEPS: 100000
     seed: 1
     masking: True
     reward: TASSEL
@@ -24,5 +24,5 @@ params:
     generate_heuristic_schedules: None
     heuristics_policy_rl: None
     recreate_solution: None
-    test: sac_discrete
+    test: sac_discrete_optuna
     optuna_trials: 5
