@@ -6,7 +6,7 @@
 #   buffer_usages = {no_buffers, always_buffers, random, agent_decides}
 #   heuristics = {None, FIFO, EDD, SPT, SCT}
 #   solutions = {None, FIFO, EDD, SPT, SCT, kopanos}
-#   test = {ppo_optuna, ppo_manual, ppo_test_trained, simple_run}
+#   test = {ppo_optuna, ppo_manual, ppo_test_trained, simple_run, sac_discrete, sac_discrete_optuna}
 # config.yaml
 
 params:
