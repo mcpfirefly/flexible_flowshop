@@ -898,6 +898,8 @@ class SAC_Discrete:
             args.update(sac_args_optuna_makespan(self))
         elif self.reward == "OCC":
             args.update(sac_args_optuna_occ(self))
+        elif self.reward == "TASSEL":
+            args.update(sac_args_optuna_tassel(self))
         # set global seed
         set_global_seed(self.seed)
 
