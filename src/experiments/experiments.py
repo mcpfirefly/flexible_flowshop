@@ -550,6 +550,7 @@ class PPO_Manual_Parameters:
                 n_eval_episodes=self.N_EVAL_EPISODES,
                 eval_freq=self.EVAL_FREQ,
                 best_model_save_path=self.best_model_save_path,
+                deterministic = False,
                 verbose=2,
             )
         else:

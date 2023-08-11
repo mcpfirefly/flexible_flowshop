@@ -14,6 +14,7 @@ class CustomMaskableEvalCallback(MaskableEvalCallback):
         n_eval_episodes,
         eval_freq,
         best_model_save_path,
+        deterministic=False,
         verbose=0,
         log_path=None,
     ):
@@ -23,6 +24,7 @@ class CustomMaskableEvalCallback(MaskableEvalCallback):
             eval_freq=eval_freq,
             log_path=log_path,
             best_model_save_path=best_model_save_path,
+            deterministic = deterministic,
             verbose=verbose,
         )
 
