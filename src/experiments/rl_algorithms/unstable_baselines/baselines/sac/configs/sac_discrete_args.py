@@ -183,10 +183,10 @@ def sac_args_optuna_tassel(self):
             }
         },
         "trainer": {
-            "max_env_steps": 100000,
+            "max_env_steps": self.N_TIMESTEPS,
             "batch_size": 128,
-            "eval_interval": 1000,
-            "num_eval_trajectories": 10,
+            "eval_interval": self.EVAL_FREQ,
+            "num_eval_trajectories": self.N_EVAL_EPISODES,
             "snapshot_interval": 10000,
             "start_timestep": 2000,
             "random_policy_timestep": 1000,

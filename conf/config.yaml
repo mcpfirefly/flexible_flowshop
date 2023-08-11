@@ -10,7 +10,7 @@
 # config.yaml
 
 params:
-  - N_TIMESTEPS: 250000
+  - N_TIMESTEPS: 500000
     seed: 1
     masking: True
     reward: TASSEL
