@@ -614,6 +614,7 @@ class PPO_Test_Trained:
             model = MaskablePPO.load(model_to_load)
             print("loaded model")
             model.set_env(self.train_env)
+            model.tensorboard_log = self.log_path
             print("set env model")
             eval_callback = MaskableEvalCallback(
                 self.eval_env,
@@ -628,6 +629,7 @@ class PPO_Test_Trained:
             model = PPO.load(model_to_load)
             print("loaded model")
             model.set_env(self.train_env)
+            model.tensorboard_log = self.log_path
             print("set env model")
             eval_callback = EvalCallback(
                 self.eval_env,
