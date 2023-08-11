@@ -577,9 +577,14 @@ class PPO_Manual_Parameters:
 class PPO_Test_Trained:
     def __init__(self, study):
         self.initialize_global_variables(study)
+        self.N_EVALUATIONS = self.N_TIMESTEPS / 1000  # evaluations
+        self.EVAL_FREQ = int(self.N_TIMESTEPS / self.N_EVALUATIONS)
+        self.N_EVAL_EPISODES = 10
+
 
     def initialize_global_variables(self, study):
         self.N_TIMESTEPS = study.N_TIMESTEPS  # for every trial
+        self.N_TEST_EPISODES = 100
         self.ORDERS = study.ORDERS
         self.CHANGEOVER = study.CHANGEOVER
         self.recreate_solution = study.recreate_solution
@@ -600,31 +605,55 @@ class PPO_Test_Trained:
         self.log_path = study.log_path
         self.best_model_save_path = study.best_model_save_path
         self.test_env = make_environment(study, "_testing")
-
+        self.train_env = make_environment(study, "_training")
+        self.eval_env = make_environment(study, "_evaluation")
     def PPO_Test_Trained_Run(self):
 
-        if self.action_space == "discrete" and self.masking:
-            model_to_load = None
+        if self.masking and self.action_space == "discrete":
+            model_to_load = "C:/Users/INOSIM/PycharmProjects/flexible_flowshop/src/outputs/2023-08-11/14-38-00/ppo_manual/Training/Saved_Models/best_model.zip"
             model = MaskablePPO.load(model_to_load)
+            print("loaded model")
+            model.set_env(self.train_env)
+            print("set env model")
+            eval_callback = MaskableEvalCallback(
+                self.eval_env,
+                n_eval_episodes=self.N_EVAL_EPISODES,
+                eval_freq=self.EVAL_FREQ,
+                best_model_save_path=self.best_model_save_path,
+                deterministic = False,
+                verbose=2,
+            )
         else:
-            model_to_load = None
+            model_to_load = "C:/Users/INOSIM/PycharmProjects/flexible_flowshop2/src/outputs/2023-08-11/14-37-56/ppo_manual/Training/Saved_Models/best_model.zip"
             model = PPO.load(model_to_load)
+            print("loaded model")
+            model.set_env(self.train_env)
+            print("set env model")
+            eval_callback = EvalCallback(
+                self.eval_env,
+                n_eval_episodes=self.N_EVAL_EPISODES,
+                eval_freq=self.EVAL_FREQ,
+                best_model_save_path=self.best_model_save_path,
+                verbose=2,
+                deterministic=True,
+            )
 
-        print("loaded model")
-        model.set_env(self.test_env)
-        print("set env model")
-
-        model.env.reset()
+        obs = model.env.reset()
         print("env reset")
-        print("start learning")
+        print("learning started")
+        model.learn(
+            total_timesteps=self.N_TIMESTEPS,
+            reset_num_timesteps=False,
+            callback=eval_callback,
+        )
+        print("learning finished")
 
-        print("set env model")
+        print("start testing!")
 
         for episode in range(self.N_TEST_EPISODES):
             print("Environment is reset")
             obs = model.env.reset()
             done = False
-            score = 0
 
             while not done:
                 if self.masking and self.action_space == "discrete":

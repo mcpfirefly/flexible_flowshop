@@ -110,7 +110,7 @@ def get_tassel_reward(self,action):
     if action == len(self.study.ORDERS) or not(self.legal_operations[action]):
         # If action is NOOP, consider holes in all machines.
         tassel_processing_time = 0
-        tassel_machines_holes = sum(np.array(self.time_machines_idle_per_stage).sum())
+        tassel_machines_holes = sum(np.array(self.time_machines_idle_per_stage,dtype=object).sum())
         tassel_reward = tassel_processing_time - tassel_machines_holes
 
     elif self.machine_queue[self.orders[action].machine] >= self.MAX_QUEUE_SIZE:
