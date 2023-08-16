@@ -1,7 +1,7 @@
 #   workbooks = {kopanos, general}
 #   action_space_types = {discrete, discrete_probs, continuous}
 #   rewards = {OCC, MAKESPAN, WL, LENGTH, COMPLETION, TASSEL}
-#   obs_sizes = {small, medium, big}
+#   obs_sizes = {small, medium, big, new, small_old, big_old}
 #   products_number = {30, 60}
 #   buffer_usages = {no_buffers, always_buffers, random, agent_decides}
 #   heuristics = {None, FIFO, EDD, SPT, SCT}
@@ -10,14 +10,14 @@
 # config.yaml
 
 params:
-  - N_TIMESTEPS: 500000
-    seed: 1
+  - N_TIMESTEPS: 75000
+    seed: 2
     masking: True
     reward: TASSEL
     buffer_usage: no_buffers
     time_in_buffer_custom: 1
     workbook: kopanos
-    obs_size: big
+    obs_size: new
     action_space: discrete
     solution_hints: None
     products_number: 30
