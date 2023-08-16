@@ -88,6 +88,6 @@ def BoxPlotPlotter(data, filename, n_samples, generate_heuristic_schedules=None)
         plt.suptitle("Box Plot , Samples = {}", format(n_samples), fontsize=15, y=0.945)
 
     plt.savefig(
-        "{}/{}_Boxplot.png".format(filename, generate_heuristic_schedules), dpi=400
+        "{}/{}_Boxplot.svg".format(filename, generate_heuristic_schedules), dpi=400
     )
     plt.close()

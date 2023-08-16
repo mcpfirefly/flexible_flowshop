@@ -403,7 +403,7 @@ class GanttPlotter:
         if filename == "":
             now = datetime.now()
             dt_string = now.strftime("%Y-%m-%d--%H-%M-%S")
-            filename = f"{dt_string}--Gantt-{title.replace(' ', '_')}.png"
+            filename = f"{dt_string}--Gantt-{title.replace(' ', '_')}.svg"
 
         file_directory = os.path.dirname(filename)
         if file_directory != "":
@@ -909,7 +909,7 @@ if __name__ == "__main__":
         color_mode=1,
         description="Just an example",
         save_to_disk=True,
-        filename="MyExampleGanttChart.png",
+        filename="MyExampleGanttChart.svg",
     )
     my_plotter.show_gantt()
 

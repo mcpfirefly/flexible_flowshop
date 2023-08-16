@@ -37,6 +37,6 @@ def raincloud_plotter(data, filename, n_samples, generate_heuristic_schedules=No
         )
 
     plt.savefig(
-        "{}/{}_Raincloud.png".format(filename, generate_heuristic_schedules), dpi=400
+        "{}/{}_Raincloud.svg".format(filename, generate_heuristic_schedules), dpi=400
     )
     plt.close()
