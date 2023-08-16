@@ -32,6 +32,12 @@ def MakeEnvironment(
         env = ObservationWrapper_Medium(env)
     elif obs_size == "small":
         env = ObservationWrapper_Small(env)
+    elif obs_size == "new":
+        env = ObservationWrapper_New(env)
+    elif obs_size == "big_old":
+        env = ObservationWrapper_Big_old(env)
+    elif obs_size == "small_old":
+        env = ObservationWrapper_Small_old(env)
 
     """ACTION MODE"""
 

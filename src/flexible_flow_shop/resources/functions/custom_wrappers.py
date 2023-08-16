@@ -265,6 +265,37 @@ class ObservationWrapper_Small(gym.ObservationWrapper):
         return obs
 
 
+class ObservationWrapper_New(gym.ObservationWrapper):
+    def __init__(self, env):
+        super().__init__(env)
+        obs = self.env._observations_new()
+        self.observation_space = Box(shape=(len(obs),), low=-np.inf, high=np.inf)
+
+    def observation(self, obs):
+        obs = self.env._observations_new()
+        return obs
+
+class ObservationWrapper_Big_old(gym.ObservationWrapper):
+    def __init__(self, env):
+        super().__init__(env)
+        obs = self.env._observations_big_old()
+        self.observation_space = Box(shape=(len(obs),), low=-np.inf, high=np.inf)
+
+    def observation(self, obs):
+        obs = self.env._observations_big_old()
+        return obs
+
+class ObservationWrapper_Small_old(gym.ObservationWrapper):
+    def __init__(self, env):
+        super().__init__(env)
+        obs = self.env._observations_small_old()
+        self.observation_space = Box(shape=(len(obs),), low=-np.inf, high=np.inf)
+
+    def observation(self, obs):
+        obs = self.env._observations_small_old()
+        return obs
+
+
 class ProbabilitiesActionMaskEnv(gym.ActionWrapper):
     def __init__(self, env):
         super().__init__(env)

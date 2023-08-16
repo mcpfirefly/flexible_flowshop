@@ -1168,3 +1168,41 @@ class flexible_flow_shop(gym.Env):
         observation = np.array(observation)
 
         return observation
+
+
+    def _observations_new(self):
+        # finished orders list
+        self.legal_machines_per_stage = [self.legal_machines[i] for i in self.study.INDEX_MACHINES]
+        self.finished_orders_index = [i for i, e in enumerate(self.study.JOBS) if e in set(self.factory.finished_orders)]
+        self.finished_orders = np.in1d(range(len(self.study.JOBS)), self.finished_orders_index)
+        self.machine_queue_list = list(self.machine_queue.values())
+
+        observation = []
+        # global_schedule_observations
+        observation.append(self.start_time_operations)
+        observation.append(self.end_time_operations)
+
+        # legal_moves_observations
+        observation.append(self.legal_jobs)
+        observation.append(self.legal_machines)
+
+        # job's information
+        observation.append(self.jobs_completion)
+        observation.append(self.job_processing_time)
+        observation.append(self.job_changeover_time)
+
+        # Holes in schedule / waiting time information
+        observation.append(self.time_until_job_done)
+        observation.append(self.time_until_machine_free)
+        observation.append(self.time_machines_idle)
+
+        observation = list(itertools.chain.from_iterable(observation))
+
+        # objective_variables_observations
+        observation.insert(0, self.sim_duration)
+        observation.insert(1, self.oc_costs)
+        observation.insert(2, self.weighted_total_lateness)
+
+        observation = np.array(observation)
+
+        return observation
