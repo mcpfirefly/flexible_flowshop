@@ -82,7 +82,7 @@ class flexible_flow_shop(gym.Env):
             for _, row in self.study.ORDERS.iterrows()
         ]
         self.num_steps = 0
-        self.all_changeover_costs = np.array(0, dtype=np.float)
+        self.all_changeover_costs = np.array(0, dtype=float)
         self.weighted_total_lateness = 0
         self.legal_operations = [
             True
@@ -93,20 +93,20 @@ class flexible_flow_shop(gym.Env):
         self.legal_operations.append(False)
         self.legal_operations = np.array(self.legal_operations)
         self.history_default_changeover = np.zeros(self.study.N_OPERATIONS)
-        self.legal_jobs = np.array([True for product in self.study.JOBS], dtype=np.int)
-        self.time_until_job_done = np.zeros(len(self.study.JOBS), dtype=np.float)
+        self.legal_jobs = np.array([True for product in self.study.JOBS], dtype=int)
+        self.time_until_job_done = np.zeros(len(self.study.JOBS), dtype=float)
         self.time_until_operation_done = np.zeros(
-            (self.study.N_OPERATIONS), dtype=np.float
+            (self.study.N_OPERATIONS), dtype=float
         )
-        self.jobs_completion = np.zeros(len(self.study.JOBS), dtype=np.float)
-        self.operations_completion = np.zeros((self.study.N_OPERATIONS), dtype=np.int)
+        self.jobs_completion = np.zeros(len(self.study.JOBS), dtype=float)
+        self.operations_completion = np.zeros((self.study.N_OPERATIONS), dtype=int)
         self.time_until_machine_free = np.zeros(
-            len(self.study.MACHINES), dtype=np.float
+            len(self.study.MACHINES), dtype=float
         )  # I consider the remaining changeovers
         self.operation_waiting_time = np.zeros(
-            (self.study.N_OPERATIONS), dtype=np.float
+            (self.study.N_OPERATIONS), dtype=float
         )
-        self.time_left_previous_stage = np.zeros(len(self.study.JOBS), dtype=np.float)
+        self.time_left_previous_stage = np.zeros(len(self.study.JOBS), dtype=float)
         self.total_current_idle_time = 0
         self.total_past_idle_time = 0
         # To store preceeding orders for changeover calculations
@@ -117,33 +117,33 @@ class flexible_flow_shop(gym.Env):
         self.counter_historical_selection = {key: 0 for key in self.study.MACHINES}
         self.TASK_LIST = list()
         self.no_operation_active = 0
-        self.current_operation_in_machine = np.zeros(
-            len(self.study.MACHINES), dtype=np.int
+        self.current_operation_in_machine = -np.ones(
+            len(self.study.MACHINES), dtype=int
         )  # no_operation
-        self.next_operation_in_machine = np.zeros(
-            len(self.study.MACHINES), dtype=np.int
+        self.next_operation_in_machine = -np.ones(
+            len(self.study.MACHINES), dtype=int
         )  # no_operation
         self.stage_operations = np.zeros(self.study.N_OPERATIONS)
         self.stage_jobs = np.zeros(len(self.study.JOBS))
-        self.job_processing_time = np.zeros(len(self.study.JOBS), dtype=np.float)
-        self.operation_processing_time = np.zeros(
-            (self.study.N_OPERATIONS), dtype=np.float
+        self.job_processing_time = np.zeros(len(self.study.JOBS), dtype=float)
+        self.operation_processing_time = -np.ones(
+            (self.study.N_OPERATIONS), dtype=float
         )
-        self.job_changeover_time = np.zeros(len(self.study.JOBS), dtype=np.float)
-        self.operation_changeover_time = np.zeros(
-            (self.study.N_OPERATIONS), dtype=np.float
+        self.job_changeover_time = np.zeros(len(self.study.JOBS), dtype=float)
+        self.operation_changeover_time = -np.ones(
+            (self.study.N_OPERATIONS), dtype=float
         )
-        self.job_waiting_time = np.zeros(len(self.study.JOBS), dtype=np.float)
-        self.legal_machines = np.ones(len(self.study.MACHINES), dtype=np.int)
+        self.job_waiting_time = np.zeros(len(self.study.JOBS), dtype=float)
+        self.legal_machines = np.ones(len(self.study.MACHINES), dtype=int)
         self.counter = 0
-        self.scheduled_operations = np.zeros((self.study.N_OPERATIONS), dtype=np.int)
-        self.scheduled_jobs = np.zeros(self.study.N_OPERATIONS, dtype=np.int)
-        self.scheduled_machines = np.zeros((self.study.N_OPERATIONS), dtype=np.int)
-        self.stages_queue_size = np.zeros(len(self.study.STAGES), dtype=np.int)
-        self.stage_progression = np.zeros(len(self.study.STAGES), dtype=np.float)
-        self.time_machines_idle = np.zeros(len(self.study.MACHINES), dtype=np.float)
+        self.scheduled_operations = -np.ones((self.study.N_OPERATIONS), dtype=int)
+        self.scheduled_jobs = -np.ones(self.study.N_OPERATIONS, dtype=int)
+        self.scheduled_machines = -np.ones((self.study.N_OPERATIONS), dtype=int)
+        self.stages_queue_size = np.zeros(len(self.study.STAGES), dtype=int)
+        self.stage_progression = np.zeros(len(self.study.STAGES), dtype=float)
+        self.time_machines_idle = np.zeros(len(self.study.MACHINES), dtype=float)
         self.time_machines_idle_per_stage = self.time_machines_idle_per_stage = [[self.time_machines_idle[idx] for idx in stage_indices] for stage_indices in self.study.INDEX_MACHINES]
-        self.completion_score = np.array(0, dtype=np.float)
+        self.completion_score = np.array(0, dtype=float)
         self.sim_duration = (
             0  # small positive constant to avoid issues when dividing over makespan
         )
@@ -183,6 +183,8 @@ class flexible_flow_shop(gym.Env):
         self.counter_heuristics = 0
         self.tassel_reward = 0
         self.MAX_QUEUE_SIZE = np.inf
+        self.start_time_operations = -np.ones(self.study.N_OPERATIONS, dtype=float)
+        self.end_time_operations = -np.ones(self.study.N_OPERATIONS, dtype=float)
         if self.study.generate_heuristic_schedules == None or self.study.heuristics_policy_rl == None:
             self.MAX_QUEUE_SIZE = 1
         return self._get_observation()
@@ -463,6 +465,7 @@ class flexible_flow_shop(gym.Env):
                     order.machine = request.value
 
                     order.time_start_process = self.env.now
+                    self.start_time_operations[order.position_in_schedule] = order.time_start_process
                     self.schedule.append(order.operation_id)
                     self.current_operation_in_machine[
                         order.machine_id
@@ -500,6 +503,7 @@ class flexible_flow_shop(gym.Env):
                         1, order.total_stages
                     )
                     order.time_leaving_stage = self.env.now
+                    self.end_time_operations[order.position_in_schedule] = order.time_leaving_stage
                     order.processing_value = (
                         order.time_leaving_stage - order.time_start_process
                     )
@@ -581,6 +585,9 @@ class flexible_flow_shop(gym.Env):
                             order.stage != 0
                             and np.around(self.stage_progression[i], 3) != 1
                         )
+
+                        if not changeover_condition:
+                            self.operation_changeover_time[order.position_in_schedule] = 0
                     else:
                         changeover_condition = (
                             np.around(self.stage_progression[i], 3) != 1
@@ -914,8 +921,59 @@ class flexible_flow_shop(gym.Env):
         return min(
             item_number, (len(self.study.MACHINES) - 1)
         )  # Cap the item number at 16 (total items - 1)
-
     def _observations_big(self):
+        # finished orders list
+        self.legal_machines_per_stage = [
+            self.legal_machines[i] for i in self.study.INDEX_MACHINES
+        ]
+        self.finished_orders_index = [
+            i
+            for i, e in enumerate(self.study.JOBS)
+            if e in set(self.factory.finished_orders)
+        ]
+        self.finished_orders = np.in1d(
+            range(len(self.study.JOBS)), self.finished_orders_index
+        )
+        self.machine_queue_list = list(self.machine_queue.values())
+        observation = []
+        # global_schedule_observations
+        observation.append(self.start_time_operations)
+        observation.append(self.end_time_operations)
+        # legal_moves_observations
+        observation.append(self.legal_operations)
+        observation.append(self.legal_jobs)
+        observation.append(self.legal_machines)
+        # progress_observations
+        observation.append(self.operations_completion)
+        observation.append(self.jobs_completion)
+        # production_time_observations
+        observation.append(self.operation_processing_time)
+        observation.append(self.operation_changeover_time)
+        observation.append(self.operation_waiting_time)
+        observation.append(self.job_processing_time)
+        observation.append(self.job_changeover_time)
+        observation.append(self.job_waiting_time)
+        # time_until_observations
+        observation.append(self.time_until_operation_done)
+        observation.append(self.time_until_job_done)
+        observation.append(self.time_until_machine_free)
+        # machines_observations
+        observation.append(self.current_operation_in_machine)
+        observation.append(self.next_operation_in_machine)
+        observation.append(self.time_machines_idle)
+        observation.append(self.machine_queue_list)
+        # observation = np.ndarray.flatten(np.array(observation))
+        observation = list(itertools.chain.from_iterable(observation))
+
+        # objective_variables_observations
+        observation.insert(0, self.sim_duration)
+        observation.insert(1, self.oc_costs)
+        observation.insert(2, self.weighted_total_lateness)
+
+        observation = np.array(observation)
+
+        return observation
+    def _observations_big_old(self):
         # finished orders list
         self.legal_machines_per_stage = [
             self.legal_machines[i] for i in self.study.INDEX_MACHINES
@@ -955,7 +1013,7 @@ class flexible_flow_shop(gym.Env):
         # machines_observations
         observation.append(self.current_operation_in_machine)
         observation.append(self.next_operation_in_machine)
-        observation.append((np.array(self.time_machines_idle_per_stage,dtype=object)).sum())
+        observation.append(self.time_machines_idle)
         observation.append(self.machine_queue_list)
         # observation = np.ndarray.flatten(np.array(observation))
         observation = list(itertools.chain.from_iterable(observation))
@@ -1016,7 +1074,7 @@ class flexible_flow_shop(gym.Env):
 
         return observation
 
-    def _observations_small(self):
+    def _observations_small_old(self):
         # finished orders list
         self.legal_machines_per_stage = [
             self.legal_machines[i] for i in self.study.INDEX_MACHINES
@@ -1049,6 +1107,54 @@ class flexible_flow_shop(gym.Env):
         observation.append(self.time_until_machine_free)
         # machines_observations
         observation.append((np.array(self.time_machines_idle_per_stage,dtype=object)).sum())
+        observation.append(self.machine_queue_list)
+        # observation = np.ndarray.flatten(np.array(observation))
+
+        observation = list(itertools.chain.from_iterable(observation))
+
+        # objective_variables_observations
+        observation.insert(0, self.sim_duration)
+        observation.insert(1, self.oc_costs)
+        observation.insert(2, self.weighted_total_lateness)
+
+        observation = np.array(observation)
+
+        return observation
+
+
+    def _observations_small(self):
+        # finished orders list
+        self.legal_machines_per_stage = [
+            self.legal_machines[i] for i in self.study.INDEX_MACHINES
+        ]
+        self.finished_orders_index = [
+            i
+            for i, e in enumerate(self.study.JOBS)
+            if e in set(self.factory.finished_orders)
+        ]
+        self.finished_orders = np.in1d(
+            range(len(self.study.JOBS)), self.finished_orders_index
+        )
+        self.machine_queue_list = list(self.machine_queue.values())
+
+        observation = []
+        # global_schedule_observations
+        observation.append(self.start_time_operations)
+        observation.append(self.end_time_operations)
+        # legal_moves_observations
+        observation.append(self.legal_jobs)
+        observation.append(self.legal_machines)
+        # progress_observations
+        observation.append(self.jobs_completion)
+        # production_time_observations
+        observation.append(self.job_processing_time)
+        observation.append(self.job_changeover_time)
+        observation.append(self.job_waiting_time)
+        # time_until_observations
+        observation.append(self.time_until_job_done)
+        observation.append(self.time_until_machine_free)
+        # machines_observations
+        observation.append(self.time_machines_idle)
         observation.append(self.machine_queue_list)
         # observation = np.ndarray.flatten(np.array(observation))
 
