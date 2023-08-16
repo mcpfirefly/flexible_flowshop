@@ -1,3 +1,7 @@
+import statistics
+import matplotlib.pyplot as plt
+import pickle
+
 from src.experiments.rl_algorithms.unstable_baselines.baselines.redq.trainer import REDQTrainer
 from src.experiments.rl_algorithms.unstable_baselines.common.logger import Logger
 from src.experiments.rl_algorithms.unstable_baselines.baselines.sac.trainer import SACTrainer
@@ -27,6 +31,7 @@ from src.experiments.rl_algorithms.unstable_baselines.baselines.sac.configs.sac_
 from src.experiments.rl_algorithms.unstable_baselines.baselines.redq.redq_args import *
 import pandas as pd
 import numpy as np
+import tensorflow as tf
 import optuna, tempfile, gym, torch, datetime, os
 from optuna.samplers import TPESampler
 from optuna.pruners import MedianPruner
@@ -51,6 +56,65 @@ def make_environment(study, suffix):
         heuristics_policy_rl=study.heuristics_policy_rl,
     )
 
+def Plot_From_TensorboardLogs(self):
+    # Find the latest events file in the directory
+    event_file = None
+    for file in os.listdir(self.log_path):
+        if file.startswith('events.out.tfevents'):
+            event_file = os.path.join(self.log_path, file)
+            break
+
+    if event_file is None:
+        print("No event file found in the specified directory.")
+    else:
+        # Load TensorBoard log file
+        store_variables = {}
+
+        for event in tf.compat.v1.train.summary_iterator(event_file):
+            for value in event.summary.value:
+                if value.HasField('simple_value'):
+                    store_variables.setdefault(value.tag, []).append((event.wall_time, value.simple_value))
+
+        # Smoothing factor
+        smoothing_factor = 0.8
+        base_output_directory = self.log_path +"/plots"
+        # Create the base output directory if it doesn't exist
+        os.makedirs(base_output_directory, exist_ok=True)
+        # Create separate plots for each key in the dictionary
+        for key, value in store_variables.items():
+            filename_safe_key = key.replace('/', '-')
+
+            # Extract x and y values from the list of tuples
+            x_values, y_values = zip(*value)
+
+            # Apply exponential moving average (EMA) smoothing to y-values
+            smoothed_y_values = [y_values[0]]
+            for y in y_values[1:]:
+                smoothed_y = smoothing_factor * smoothed_y_values[-1] + (1 - smoothing_factor) * y
+                smoothed_y_values.append(smoothed_y)
+
+            # Create a new figure
+            plt.figure()
+
+            # Plot the original data points in a lighter color
+            plt.scatter(x_values, y_values, color='gray', alpha=0.4, label=f'{filename_safe_key} (original)')
+
+            # Plot the smoothed data
+            plt.plot(x_values, smoothed_y_values, label=f'{filename_safe_key} (smoothed)')
+
+            # Set title and labels
+            plt.title(f'{filename_safe_key} with Smoothing')
+            plt.xlabel('X values')
+            plt.ylabel('Y values')
+
+            # Add legend
+            plt.legend()
+
+            # Save the plot to the specified location
+            plot_filename = f'{filename_safe_key}_plot.svg'  # You can use any desired file format (e.g., .eps, .jpg, etc.)
+            save_path = os.path.join(base_output_directory, plot_filename)
+            plt.savefig(save_path, dpi=400)
+            plt.close()
 
 ##### A CLASS FOR EACH DIFFERENT TEST
 class PPO_Optuna:
@@ -395,6 +459,8 @@ class PPO_Optuna:
         for key, value in trial.user_attrs.items():
             print("    {}: {}".format(key, value))
 
+        Plot_From_TensorboardLogs(self)
+
 
 class PPO_Manual_Parameters:
     def __init__(self, study):
@@ -572,6 +638,8 @@ class PPO_Manual_Parameters:
             callback=eval_callback,
         )
         print("learning finished")
+        Plot_From_TensorboardLogs(self)
+
 
 
 class PPO_Test_Trained:
@@ -669,6 +737,8 @@ class PPO_Test_Trained:
 
                 obs, rewards, done, info = model.env.step(action)
             print("Episode terminated!")
+
+        Plot_From_TensorboardLogs(self)
 
 
 class PPO_Simple_Run:
@@ -822,8 +892,7 @@ class PPO_Simple_Run:
                 self.N_TEST_EPISODES,
                 self.generate_heuristic_schedules,
             )
-
-
+        Plot_From_TensorboardLogs(self)
 class PPO_Imitation_DAgger:
 
     def __init__(self, study):
@@ -892,6 +961,8 @@ class PPO_Imitation_DAgger:
 
         reward, _ = evaluate_policy(dagger_trainer.policy, env, self.N_EVAL_EPISODES)
         print("Reward:", reward)
+
+        Plot_From_TensorboardLogs(self)
 
 
 class SAC_Discrete:
@@ -973,6 +1044,7 @@ class SAC_Discrete:
 
         logger.log_str("Started training")
         trainer.train()
+        Plot_From_TensorboardLogs(self)
 
 class REDQ:
     def __init__(self, study):
@@ -1046,6 +1118,7 @@ class REDQ:
 
         logger.log_str("Started training")
         trainer.train()
+        Plot_From_TensorboardLogs(self)
 
 
 
@@ -1195,3 +1268,5 @@ class optuna_SAC_discrete:
         print("  User attrs:")
         for key, value in trial.user_attrs.items():
             print("    {}: {}".format(key, value))
+
+        Plot_From_TensorboardLogs(self)
