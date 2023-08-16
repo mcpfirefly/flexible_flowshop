@@ -1,7 +1,7 @@
 #   workbooks = {kopanos, general}
 #   action_space_types = {discrete, discrete_probs, continuous}
 #   rewards = {OCC, MAKESPAN, WL, LENGTH, COMPLETION, TASSEL}
-#   obs_sizes = {small, medium, big, new, small_old, big_old}
+#   obs_sizes = {small, medium, big, new, small_old, big_old }
 #   products_number = {30, 60}
 #   buffer_usages = {no_buffers, always_buffers, random, agent_decides}
 #   heuristics = {None, FIFO, EDD, SPT, SCT}
