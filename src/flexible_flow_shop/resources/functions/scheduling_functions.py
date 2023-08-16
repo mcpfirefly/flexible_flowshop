@@ -105,7 +105,31 @@ def update_time_arrays(self):
         [x - self.timestep for x in self.time_until_machine_free]
     )  # substract env.now
 
+
 def get_tassel_reward(self,action):
+
+    if action == len(self.study.ORDERS) or not(self.legal_operations[action]):
+        # If action is NOOP, consider holes in all machines.
+        tassel_processing_time = 0
+        tassel_machines_holes = sum(np.array(self.time_machines_idle))
+        tassel_reward = tassel_processing_time - tassel_machines_holes
+
+    elif self.machine_queue[self.orders[action].machine] >= self.MAX_QUEUE_SIZE:
+        # If action is legal, but machine is busy and queue is unavailable, consider holes from the corresponding stage
+        # plus remaining time until operation can enter the queue. This operation won't enter the schedule
+        machine = self.orders[action].machine_id
+        tassel_processing_time = 0
+        tassel_machines_holes = sum(self.time_machines_idle) + self.time_until_machine_free[machine]
+        tassel_reward = tassel_processing_time - tassel_machines_holes
+    else:
+        # if action is legal and machine or queue are directly available
+        machine = self.orders[action].machine_id
+        tassel_processing_time = self.orders[action].processing_time
+        tassel_machines_holes = sum(self.time_machines_idle) - self.time_machines_idle[machine]
+        tassel_reward = tassel_processing_time - tassel_machines_holes
+
+    return tassel_reward
+def get_modified_tassel_reward(self,action):
 
     if action == len(self.study.ORDERS) or not(self.legal_operations[action]):
         # If action is NOOP, consider holes in all machines.
