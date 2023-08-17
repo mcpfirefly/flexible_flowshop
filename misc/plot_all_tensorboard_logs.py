@@ -18,7 +18,7 @@ def generate_and_save_plots(event_file, log_path):
 
     # Smoothing factor
     smoothing_factor = 0.8
-    base_output_directory = log_path + "/plots"
+    base_output_directory = log_path + "/Event Plots"
     # Create the base output directory if it doesn't exist
     os.makedirs(base_output_directory, exist_ok=True)
     # Create separate plots for each key in the dictionary
@@ -122,7 +122,7 @@ def process_directory(directory_path):
 
 if __name__ == "__main__":
     # Define your base source directory
-    base_source_directory = 'C:/Users/INOSIM/PycharmProjects/flexible_flowshop/src/experiments/results'
+    base_source_directory = 'C:/Users/INOSIM/PycharmProjects/flexible_flowshop/src/experiments/results/09_analysis_obs_spaces'
     smoothing = False
     moving_average = True
     moving_average_period = 12
