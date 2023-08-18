@@ -10,8 +10,8 @@
 # config.yaml
 
 params:
-  - N_TIMESTEPS: 75000
-    seed: 2
+  - N_TIMESTEPS: 2000
+    seed: None
     masking: True
     reward: TASSEL
     buffer_usage: no_buffers

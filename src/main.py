@@ -19,8 +19,8 @@ def main(cfg: DictConfig) -> DictConfig:
         if value == "None":
             cfg.params[0][key] = None
     config = cfg.params[0]
+    config.seed = i
     study = StudyCase(config)
-
     if config.test == "ppo_manual":
         PPO_Manual_Parameters(study).PPO_Manual_Parameters_run()
     elif config.test == "simple_run":
@@ -38,5 +38,9 @@ def main(cfg: DictConfig) -> DictConfig:
     elif config.test == "sac_discrete_optuna":
         optuna_SAC_discrete(study).optuna_SAC_discrete_run()
 
+
 if __name__ == "__main__":
-    main()
+    global i
+    for i in range(6):
+        print(f"Experiment with seed {i}")
+        main()
