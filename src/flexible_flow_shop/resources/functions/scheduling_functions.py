@@ -188,9 +188,6 @@ def get_timestep(self, action):
         timestep = min_non_zero
         # print("NO OP: Go to the next time step until we have a legal action! Jump: {}".format(timestep))
 
-    elif self.orders[action].stage == 0:
-        timestep = 0.01
-
     elif self.legal_machines_per_stage[self.orders[action].stage].any() == True:
         timestep = 0.01
 
