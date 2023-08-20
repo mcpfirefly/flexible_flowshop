@@ -1,12 +1,10 @@
 import matplotlib.pyplot as plt
-import scienceplots
-
 import pandas as pd
 import numpy as np
 import os
 from scipy import stats
 
-experiment_name = "Experiment ID32: Observation Space Big"
+experiment_name = "ID32"
 base_source_directory = "C:/Users/INOSIM/OneDrive - INOSIM Consulting GmbH/Desktop/all_30/all_30/ID32_big_new_os"
 plt.style.use(['science','no-latex','grid'])
 # Define your base source directory
@@ -83,7 +81,7 @@ def generate_single_plot(csv_path, column_name, label, is_evaluation):
     plt.title(f'Episode vs. {format_column(column_name)} ({plot_type})')
     return df[column_name]
 # List of columns to generate plots for
-columns_to_plot = ['sim_duration', 'total_reward',"oc_costs","weighted_lateness","l"]
+columns_to_plot = ['sim_duration', 'total_reward',"oc_costs","weighted_lateness"]
 
 
 # Recursive function to process subdirectories and collect file paths
@@ -107,63 +105,59 @@ process_directory(base_source_directory, loc_evaluation_files, loc_training_file
 
 
 # Function to generate and save individual plots from file paths
-def generate_individual_plots_from_files(file_paths, column_name, title, is_evaluation):
-    plt.figure(figsize=(10, 6))
+def generate_individual_plots_from_files(file_paths, column_name, title, is_evaluation, ax=None):
+    if ax is None:
+        plt.figure(figsize=(10, 6))
 
-    values_eval = [[] for _ in range(len(loc_evaluation_files))]
-    values_train = [[] for _ in range(len(loc_evaluation_files))]
+    values_eval = [[] for _ in range(len(file_paths))]
+    values_train = [[] for _ in range(len(file_paths))]
 
     for idx, file_path in enumerate(file_paths):
-        column = generate_single_plot(file_path, column_name, f'{format_column(column_name)} #{idx + 1}', is_evaluation=is_evaluation)
+        column = generate_single_plot(file_path, column_name, f'Run #{idx}', is_evaluation=is_evaluation)
 
         if is_evaluation:
             if smoothing:
                 values_eval[idx] = smooth_values(column)
             else:
                 values_eval[idx] = calculate_moving_average(column)
-
         else:
             if smoothing:
                 values_train[idx] = smooth_values(column)
             else:
                 values_train[idx] = calculate_moving_average(column)
 
-
     if is_evaluation:
-        values_eval = make_homogeneous(values_eval) #number of episodes may differ in each experiment
-        #values_eval = np.array(values_eval,dtype=float)
-        mean_eval = np.mean(values_eval,axis=0)
+        values_eval = make_homogeneous(values_eval)
+        mean_eval = np.mean(values_eval, axis=0)
         std_eval = np.std(values_eval, axis=0)
         episodes = list(range(1, len(mean_eval) + 1))
-        plt.plot(episodes, mean_eval, label='Mean', color="black", linestyle="dashed")
-        plt.fill_between(episodes, mean_eval - std_eval, mean_eval + std_eval, color='gray', alpha=0.2)
-
+        ax.plot(episodes, mean_eval, label="Mean $(μ)$", color="black", linestyle="dashed")
+        ax.fill_between(episodes, mean_eval - std_eval, mean_eval + std_eval, color='gray', alpha=0.2, label ="STD $(σ)$")
     else:
         values_train = make_homogeneous(values_train)
         mean_train = np.mean(values_train, axis=0)
         std_train = np.std(values_train, axis=0)
         episodes = list(range(1, len(mean_train) + 1))
-        plt.plot(episodes, mean_train, label='Mean', color="black", linestyle="dashed")
-        plt.fill_between(episodes, mean_train - std_train, mean_train + std_train, color='gray', alpha=0.2)
+        ax.plot(episodes, mean_train, label="Mean $(μ)$", color="black", linestyle="dashed")
+        ax.fill_between(episodes, mean_train - std_train, mean_train + std_train, color='gray', alpha=0.2, label = "STD $(σ)$")
 
-    plt.xlabel('Episode')
-    plt.ylabel(format_column(column_name))
+    ax.set_xlabel('Episode')
+    ax.set_ylabel(format_column(column_name))
+    ax.set_aspect("auto")
     plot_type = 'Evaluation' if is_evaluation else 'Training'
-    plt.suptitle(experiment_name)
-    plt.title(f'Episode vs. {format_column(column_name)} ({plot_type})')
+    ax.set_title(f'Episode vs. {format_column(column_name)}')
+    #ax.legend(handlelength=1.0, handleheight=0.8)
 
-    plt.legend()
-    plt.tight_layout()
+    if ax is None:
+        plt.tight_layout()
 
-    if is_evaluation:
-        plot_type = 'Evaluation'
-    else:
-        plot_type = 'Training'
-    figure = plt.gcf()
-    figure.set_size_inches(11, 5)
-    plt.savefig(os.path.join(base_source_directory, f'{plot_type}_{format_column(column_name)}_Plot.png'), dpi=400)
-    plt.close()
-
+        if is_evaluation:
+            plot_type = 'Evaluation'
+        else:
+            plot_type = 'Training'
+        figure = plt.gcf()
+        figure.set_size_inches(11, 5)
+        plt.close()
 
 def generate_plots_vs_custom(idx, csv_path, column_x, column_y, is_evaluation=False, ax=None):
     plot_type = 'Evaluation' if is_evaluation else 'Training'
@@ -181,6 +175,7 @@ def generate_plots_vs_custom(idx, csv_path, column_x, column_y, is_evaluation=Fa
 
         # Use the passed axes instead of creating a new figure
         if ax is None:
+            ax.legend()
             ax = plt.gca()
 
         ax.scatter(df[column_x], df[column_y], label=format_column(column_y), s=10, alpha=0.7)
@@ -188,7 +183,7 @@ def generate_plots_vs_custom(idx, csv_path, column_x, column_y, is_evaluation=Fa
 
         ax.set_xlabel(format_column(column_x))
         ax.set_ylabel(format_column(column_y))
-        ax.set_title(f'Simulation #{idx}')
+        ax.set_title(f'Run #{idx}')
         ax.legend(handlelength=1.0, handleheight=0.8)
         # Create a "Monitor Plots" subfolder within the same directory as the CSV file
         if column_y == "l":
@@ -220,7 +215,7 @@ def generate_subplots_for_custom_plots(file_paths, column_x, column_y, is_evalua
     plt.subplots_adjust(top=0.88)
     #figure = plt.gcf()
     #figure.set_size_inches(11, 6)
-    plt.savefig(os.path.join(base_source_directory, f'{plot_type}_{column_x}_vs_{column_y}_Subplots.png'), dpi=400)
+    plt.savefig(os.path.join(base_source_directory, f'{experiment_name}_{plot_type}_{format_column(column_x).replace(" ","_")}_vs_{format_column(column_y).replace(" ","_")}.png'), dpi=400)
     plt.close()
 
 
@@ -228,6 +223,45 @@ def generate_subplots_for_custom_plots(file_paths, column_x, column_y, is_evalua
 generate_subplots_for_custom_plots(loc_evaluation_files, 'total_reward', 'sim_duration', is_evaluation=True)
 generate_subplots_for_custom_plots(loc_training_files, 'total_reward', 'sim_duration', is_evaluation=False)
 
-for i in range(len(columns_to_plot)):
-    generate_individual_plots_from_files(loc_evaluation_files, columns_to_plot[i], (f'{format_column(columns_to_plot[i])} vs. Episodes'), is_evaluation=True)
-    generate_individual_plots_from_files(loc_training_files, columns_to_plot[i], (f'{format_column(columns_to_plot[i])} vs. Episodes'), is_evaluation=False)
+# Define a function to generate subplots for a given set of file paths, columns, and plot title
+def generate_subplots(file_paths, columns, plot_title, is_evaluation):
+    num_plots = len(columns)
+    num_cols = 2
+    num_rows = (num_plots + num_cols - 1) // num_cols
+
+    if is_evaluation:
+        plot_type = 'Evaluation'
+    else:
+        plot_type = 'Training'
+
+    plt.figure(figsize=(11, 6))
+
+    for idx, column in enumerate(columns, 1):
+        ax = plt.subplot(num_rows, num_cols, idx)
+        generate_individual_plots_from_files(file_paths, column, f'{format_column(column)} vs. Episodes',
+                                             is_evaluation=is_evaluation, ax=ax)
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.subplots_adjust(top=0.88)
+    if smoothing_factor != None or smoothing_factor != 0:
+        plt.suptitle(f'{experiment_name}: Agent\'s Performance Overview ({plot_type}, Smoothing Factor: {smoothing_factor})')
+    else:
+        plt.suptitle(
+            f'{experiment_name}: Agent\'s Performance Overview ({plot_type})')
+    fig = plt.gcf()
+    lines_labels = [ax.get_legend_handles_labels() for ax in fig.axes]
+    lines, labels = [sum(lol, []) for lol in zip(*lines_labels)]
+
+    # Create a legend with one column outside the plot on the right
+    ncol = 1
+    plt.legend(lines[0:len(file_paths) + 2], labels[0:len(file_paths) + 2], ncol=ncol, bbox_to_anchor=(1.05, 1),
+               loc='lower left')
+
+    plt.savefig(os.path.join(base_source_directory, (f'{experiment_name}_ {plot_type}_Performance_Overview.png')),
+                dpi=400, bbox_inches='tight')
+    plt.close()
+
+
+# Modify your loop to generate combined plots for evaluation and training
+generate_subplots(loc_evaluation_files, columns_to_plot, experiment_name, is_evaluation=True)
+generate_subplots(loc_training_files, columns_to_plot, experiment_name, is_evaluation=False)
