@@ -4,6 +4,10 @@ import pickle, os
 import tensorflow as tf
 import numpy as np
 # Function to generate and save plots
+smoothing = False
+moving_average = True
+moving_average_period = 12
+
 def generate_and_save_plots(event_file, log_path):
 
     # Load TensorBoard log file
@@ -113,18 +117,9 @@ def generate_and_save_plots(event_file, log_path):
 
 
 # Recursive function to process subdirectories and generate plots
-def process_directory(directory_path):
+def process_directory_tensorboard(directory_path):
     for root, dirs, files in os.walk(directory_path):
         for file in files:
             if file.startswith('events.out.tfevents'):
                 event_file_path = os.path.join(root, file)
                 generate_and_save_plots(event_file_path, root)
-
-if __name__ == "__main__":
-    # Define your base source directory
-    base_source_directory = 'C:/Users/INOSIM/PycharmProjects/flexible_flowshop/src/experiments/results/09_analysis_obs_spaces'
-    smoothing = False
-    moving_average = True
-    moving_average_period = 12
-    # Start processing from the base source directory
-    process_directory(base_source_directory)

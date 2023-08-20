@@ -4,8 +4,6 @@ import numpy as np
 import os
 from scipy import stats
 
-experiment_name = "ID32"
-base_source_directory = "C:/Users/INOSIM/OneDrive - INOSIM Consulting GmbH/Desktop/all_30/all_30/ID32_big_new_os"
 plt.style.use(['science','no-latex','grid'])
 # Define your base source directory
 window_size = 12
@@ -15,9 +13,6 @@ if smoothing_factor != None or smoothing_factor != 0:
     smoothing = True
     window_size = None
 
-loc_eval_files = []
-loc_train_files = []
-# Function to calculate moving average
 def calculate_moving_average(data):
     return data.rolling(window=window_size, min_periods=1).mean()
 
@@ -80,29 +75,6 @@ def generate_single_plot(csv_path, column_name, label, is_evaluation):
     plt.suptitle(experiment_name)
     plt.title(f'Episode vs. {format_column(column_name)} ({plot_type})')
     return df[column_name]
-# List of columns to generate plots for
-columns_to_plot = ['sim_duration', 'total_reward',"oc_costs","weighted_lateness"]
-
-
-# Recursive function to process subdirectories and collect file paths
-def process_directory(directory_path, loc_evaluation_files, loc_training_files):
-    for root, dirs, files in os.walk(directory_path):
-        for dir in dirs:
-            subdir = os.path.join(root, dir)
-            eval_csv_path = os.path.join(subdir, 'Logs_evaluation.monitor.csv')
-            training_csv_path = os.path.join(subdir, 'Logs_training.monitor.csv')
-
-            if os.path.exists(eval_csv_path):
-                loc_evaluation_files.append(eval_csv_path)
-            if os.path.exists(training_csv_path):
-                loc_training_files.append(training_csv_path)
-
-
-# Start processing from the base source directory
-loc_evaluation_files = []
-loc_training_files = []
-process_directory(base_source_directory, loc_evaluation_files, loc_training_files)
-
 
 # Function to generate and save individual plots from file paths
 def generate_individual_plots_from_files(file_paths, column_name, title, is_evaluation, ax=None):
@@ -218,11 +190,6 @@ def generate_subplots_for_custom_plots(file_paths, column_x, column_y, is_evalua
     plt.savefig(os.path.join(base_source_directory, f'{experiment_name}_{plot_type}_{format_column(column_x).replace(" ","_")}_vs_{format_column(column_y).replace(" ","_")}.png'), dpi=400)
     plt.close()
 
-
-# Call the function to generate subplots for custom plots
-generate_subplots_for_custom_plots(loc_evaluation_files, 'total_reward', 'sim_duration', is_evaluation=True)
-generate_subplots_for_custom_plots(loc_training_files, 'total_reward', 'sim_duration', is_evaluation=False)
-
 # Define a function to generate subplots for a given set of file paths, columns, and plot title
 def generate_subplots(file_paths, columns, plot_title, is_evaluation):
     num_plots = len(columns)
@@ -262,6 +229,35 @@ def generate_subplots(file_paths, columns, plot_title, is_evaluation):
     plt.close()
 
 
-# Modify your loop to generate combined plots for evaluation and training
-generate_subplots(loc_evaluation_files, columns_to_plot, experiment_name, is_evaluation=True)
-generate_subplots(loc_training_files, columns_to_plot, experiment_name, is_evaluation=False)
+
+
+# Recursive function to process subdirectories and collect file paths
+def process_directory(directory_path, loc_evaluation_files, loc_training_files, columns_to_plot):
+    for root, dirs, files in os.walk(directory_path):
+        for dir in dirs:
+            subdir = os.path.join(root, dir)
+            eval_csv_path = os.path.join(subdir, 'Logs_evaluation.monitor.csv')
+            training_csv_path = os.path.join(subdir, 'Logs_training.monitor.csv')
+
+            if os.path.exists(eval_csv_path):
+                loc_evaluation_files.append(eval_csv_path)
+            if os.path.exists(training_csv_path):
+                loc_training_files.append(training_csv_path)
+
+    # Call the function to generate subplots for custom plots
+    generate_subplots_for_custom_plots(loc_evaluation_files, 'total_reward', 'sim_duration', is_evaluation=True)
+    generate_subplots_for_custom_plots(loc_training_files, 'total_reward', 'sim_duration', is_evaluation=False)
+
+    # Modify your loop to generate combined plots for evaluation and training
+    generate_subplots(loc_evaluation_files, columns_to_plot, experiment_name, is_evaluation=True)
+    generate_subplots(loc_training_files, columns_to_plot, experiment_name, is_evaluation=False)
+
+
+# List of columns to generate plots for
+columns_to_plot = ['sim_duration', 'total_reward',"oc_costs","weighted_lateness"]
+loc_evaluation_files = []
+loc_training_files = []
+experiment_name = "ID32"
+base_source_directory = "C:/Users/INOSIM/OneDrive - INOSIM Consulting GmbH/Desktop/all_30/all_30/ID32_big_new_os"
+
+process_directory(base_source_directory, loc_evaluation_files, loc_training_files,columns_to_plot)
