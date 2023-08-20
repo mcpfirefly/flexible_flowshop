@@ -115,10 +115,6 @@ def generate_individual_plots_from_files(file_paths, column_name, title, is_eval
 
     for idx, file_path in enumerate(file_paths):
         column = generate_single_plot(file_path, column_name, f'{format_column(column_name)} #{idx + 1}', is_evaluation=is_evaluation)
-        if is_evaluation:
-            generate_plots_vs_custom(idx, file_path, "total_reward", "sim_duration", is_evaluation=True)
-        else:
-            generate_plots_vs_custom(idx, file_path, "total_reward", "sim_duration")
 
         if is_evaluation:
             if smoothing:
@@ -168,7 +164,8 @@ def generate_individual_plots_from_files(file_paths, column_name, title, is_eval
     plt.savefig(os.path.join(base_source_directory, f'{plot_type}_{format_column(column_name)}_Plot.png'), dpi=400)
     plt.close()
 
-def generate_plots_vs_custom(idx, csv_path, column_x, column_y, is_evaluation=False):
+
+def generate_plots_vs_custom(idx, csv_path, column_x, column_y, is_evaluation=False, ax=None):
     plot_type = 'Evaluation' if is_evaluation else 'Training'
     df = pd.read_csv(csv_path, header=1)
     if column_x != "episodes":
@@ -180,26 +177,56 @@ def generate_plots_vs_custom(idx, csv_path, column_x, column_y, is_evaluation=Fa
         if column_x == "total_reward":
             df[column_x] = -df[column_x]
 
-        p = calculate_trendline(df[column_x],df[column_y])
-        plt.figure()
-        figure = plt.gcf()
-        figure.set_size_inches(11, 5)
-        plt.scatter(df[column_x],df[column_y], label=format_column(column_y), s=10, alpha=0.7)
-        plt.plot(df[column_x], p(df[column_x]), color="red")
+        p = calculate_trendline(df[column_x], df[column_y])
 
-        plt.xlabel(format_column(column_x))
-        plt.ylabel(format_column(column_y))
-        plt.suptitle(experiment_name)
-        plt.title(f'Run #{idx+1}: {plot_type} - {format_column(column_x)} vs. {format_column(column_y)}')
-        plt.legend(handlelength=1.0, handleheight=0.8)
+        # Use the passed axes instead of creating a new figure
+        if ax is None:
+            ax = plt.gca()
 
+        ax.scatter(df[column_x], df[column_y], label=format_column(column_y), s=10, alpha=0.7)
+        ax.plot(df[column_x], p(df[column_x]), color="red")
+
+        ax.set_xlabel(format_column(column_x))
+        ax.set_ylabel(format_column(column_y))
+        ax.set_title(f'Simulation #{idx}')
+        ax.legend(handlelength=1.0, handleheight=0.8)
         # Create a "Monitor Plots" subfolder within the same directory as the CSV file
         if column_y == "l":
             column_y = "episode_length"
 
-        plt.savefig(os.path.join(base_source_directory, f'{idx+1}_{plot_type}_{column_x}_vs_{column_y}_plot.png'),dpi=400)
-        print("Plot!")
-        plt.close()
+        # No need to save or close the figure here
+
+
+# Create a function to generate subplots for custom plots
+def generate_subplots_for_custom_plots(file_paths, column_x, column_y, is_evaluation=False):
+    num_plots = len(file_paths)
+    num_cols = 3  # Number of columns in the subplot grid
+    num_rows = (num_plots + num_cols - 1) // num_cols  # Calculate the number of rows
+
+    if is_evaluation:
+        plot_type = 'Evaluation'
+    else:
+        plot_type = 'Training'
+
+    plt.figure(figsize=(12, 6))
+    plt.suptitle(f'{experiment_name}: {format_column(column_x)} vs. {format_column(column_y)} ({plot_type})')
+
+    for idx, file_path in enumerate(file_paths, 1):
+        ax = plt.subplot(num_rows, num_cols, idx)
+        generate_plots_vs_custom(idx, file_path, column_x, column_y, is_evaluation=is_evaluation, ax=ax)
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])  # Adjust the layout to prevent overlap
+    # Add space for the title
+    plt.subplots_adjust(top=0.88)
+    #figure = plt.gcf()
+    #figure.set_size_inches(11, 6)
+    plt.savefig(os.path.join(base_source_directory, f'{plot_type}_{column_x}_vs_{column_y}_Subplots.png'), dpi=400)
+    plt.close()
+
+
+# Call the function to generate subplots for custom plots
+generate_subplots_for_custom_plots(loc_evaluation_files, 'total_reward', 'sim_duration', is_evaluation=True)
+generate_subplots_for_custom_plots(loc_training_files, 'total_reward', 'sim_duration', is_evaluation=False)
 
 for i in range(len(columns_to_plot)):
     generate_individual_plots_from_files(loc_evaluation_files, columns_to_plot[i], (f'{format_column(columns_to_plot[i])} vs. Episodes'), is_evaluation=True)
