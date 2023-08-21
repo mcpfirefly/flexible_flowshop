@@ -126,7 +126,7 @@ class PPO_Optuna:
         self.N_EVALUATIONS = self.N_TIMESTEPS / 1000  # evaluations per trial
         self.EVAL_FREQ = int(self.N_TIMESTEPS / self.N_EVALUATIONS)
         self.N_EVAL_EPISODES = 10
-        self.optuna_log_path = "outputs/{}/{}/Training/Optuna/Logs".format(
+        self.optuna_log_path = "outputs/{}/{}/Optuna/Logs".format(
             self.experiment_folder, self.test
         )
 
@@ -1132,7 +1132,7 @@ class optuna_SAC_discrete:
         self.N_EVALUATIONS = self.N_TIMESTEPS / 1000  # evaluations per trial
         self.EVAL_FREQ = int(self.N_TIMESTEPS / self.N_EVALUATIONS)
         self.N_EVAL_EPISODES = 10
-        self.optuna_log_path = "outputs/{}/{}/Training/Optuna/Logs".format(
+        self.optuna_log_path = "outputs/{}/{}/Optuna/Logs".format(
             self.experiment_folder, self.test
         )
     def initialize_global_variables(self, study):
@@ -1270,3 +1270,20 @@ class optuna_SAC_discrete:
             print("    {}: {}".format(key, value))
 
         Plot_From_TensorboardLogs(self)
+
+
+def manual(study):
+    env = make_environment(study,"")
+    model_to_load = "C:/Users/INOSIM/OneDrive - INOSIM Consulting GmbH/Desktop/all_30/all_30/ID32_big_new_os/1/ppo_manual/Training/Saved_Models/best_model.zip"
+    network = MaskablePPO.load(model_to_load)
+
+    obs = env.reset()
+    obs_tensor = torch.tensor(obs, dtype=torch.float32).unsqueeze(0)  # Add a batch dimension
+    action_distribution = network.policy(obs_tensor)
+    sampled_action = action_distribution.sample()
+
+    action = np.random.choice(np.where(env.legal_operations)[0])
+    # Manual: check if network outputs a sensible distribution, is there an action with higher probability than the rest
+    # Manual: choose an action that make sense and use it on your env (you don't need to use the networks action)
+
+    new_state = env.step(action)

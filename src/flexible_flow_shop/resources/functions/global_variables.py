@@ -15,9 +15,9 @@ class StudyCase:
         self.filename = self.StudyCaseFilename(self.config.workbook)
         self._initialize_data(self.config)
 
-        self.log_path = f"outputs/{self.experiment_folder}/{self.test}/Training/Logs"
+        self.log_path = f"outputs/{self.experiment_folder}/{self.test}/Logs"
         self.best_model_save_path = (
-            f"outputs/{self.experiment_folder}/{self.test}/Training/Saved_Models"
+            f"outputs/{self.experiment_folder}/{self.test}/Saved_Models"
         )
 
     def _initialize_data(self, cfg):

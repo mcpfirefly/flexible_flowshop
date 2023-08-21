@@ -17,7 +17,7 @@ params:
     buffer_usage: no_buffers
     time_in_buffer_custom: 1
     workbook: kopanos
-    obs_size: new
+    obs_size: big
     action_space: discrete
     solution_hints: None
     products_number: 30

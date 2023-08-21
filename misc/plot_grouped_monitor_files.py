@@ -102,6 +102,17 @@ def generate_individual_plots_from_files(file_paths, column_name, title, is_eval
         values_eval = make_homogeneous(values_eval)
         mean_eval = np.mean(values_eval, axis=0)
         std_eval = np.std(values_eval, axis=0)
+
+        if column_name == "total_reward" or column_name == "sim_duration":
+            print(f"Experiment: {experiment_name}, Variable:{column_name}")
+            print(f" "
+                  f"{np.round(np.mean(values_eval[0][-100:]),2)},"
+                  f"{np.round(np.mean(values_eval[1][-100:]),2)},"
+                  f"{np.round(np.mean(values_eval[2][-100:]),2)},"
+                  f"{np.round(np.mean(values_eval[3][-100:]),2)},"
+                  f"{np.round(np.mean(values_eval[4][-100:]),2)},"
+                  f"{np.round(np.mean(values_eval[5][-100:]),2)},"
+                  f"{np.round(np.mean(mean_eval[-100:]),2)}")
         episodes = list(range(1, len(mean_eval) + 1))
         ax.plot(episodes, mean_eval, label="Mean $(μ)$", color="black", linestyle="dashed")
         ax.fill_between(episodes, mean_eval - std_eval, mean_eval + std_eval, color='gray', alpha=0.2, label ="STD $(σ)$")
@@ -109,6 +120,8 @@ def generate_individual_plots_from_files(file_paths, column_name, title, is_eval
         values_train = make_homogeneous(values_train)
         mean_train = np.mean(values_train, axis=0)
         std_train = np.std(values_train, axis=0)
+
+
         episodes = list(range(1, len(mean_train) + 1))
         ax.plot(episodes, mean_train, label="Mean $(μ)$", color="black", linestyle="dashed")
         ax.fill_between(episodes, mean_train - std_train, mean_train + std_train, color='gray', alpha=0.2, label = "STD $(σ)$")
@@ -255,9 +268,14 @@ def process_directory(directory_path, loc_evaluation_files, loc_training_files, 
 
 # List of columns to generate plots for
 columns_to_plot = ['sim_duration', 'total_reward',"oc_costs","weighted_lateness"]
-loc_evaluation_files = []
-loc_training_files = []
-experiment_name = "ID32"
-base_source_directory = "C:/Users/INOSIM/OneDrive - INOSIM Consulting GmbH/Desktop/all_30/all_30/ID32_big_new_os"
+directories = ["C:/Users/INOSIM/OneDrive - INOSIM Consulting GmbH/Desktop/all_30/all_30/ID32_big_new_os",
+               "C:/Users/INOSIM/OneDrive - INOSIM Consulting GmbH/Desktop/all_30/all_30/ID33_big_old_os",
+               "C:/Users/INOSIM/OneDrive - INOSIM Consulting GmbH/Desktop/all_30/all_30/ID34_small_new_os",
+               "C:/Users/INOSIM/OneDrive - INOSIM Consulting GmbH/Desktop/all_30/all_30/ID35_small_old_os",
+               "C:/Users/INOSIM/OneDrive - INOSIM Consulting GmbH/Desktop/all_30/all_30/ID36_complete_new_os"]
 
-process_directory(base_source_directory, loc_evaluation_files, loc_training_files,columns_to_plot)
+for i, base_source_directory in enumerate(directories):
+    loc_evaluation_files = []
+    loc_training_files = []
+    experiment_name = f"ID{32+i}"
+    process_directory(base_source_directory, loc_evaluation_files, loc_training_files,columns_to_plot)
