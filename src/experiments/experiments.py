@@ -295,7 +295,7 @@ class PPO_Optuna:
         DEFAULT_HYPERPARAMS = {
             "policy": "MlpPolicy",
             "env": self.train_env,
-            "verbose": 2,
+            "verbose": 1,
             "seed": self.seed,
             "tensorboard_log": self.optuna_log_path,
         }
@@ -596,7 +596,7 @@ class PPO_Manual_Parameters:
         DEFAULT_HYPERPARAMS = {
             "policy": "MlpPolicy",
             "env": self.train_env,
-            "verbose": 2,
+            "verbose": 1,
             "seed": self.seed,
             "tensorboard_log": self.log_path,
             "policy_kwargs": policy_kwargs,
@@ -607,7 +607,8 @@ class PPO_Manual_Parameters:
         elif self.action_space == "continuous":
             kwargs.update(self.ppo_hyperparams_continuous())
         elif self.action_space == "discrete":
-            kwargs.update(self.ppo_hyperparams_discrete())
+            #kwargs.update(self.ppo_hyperparams_discrete())
+            a=1
 
         if self.masking and self.action_space == "discrete":
             model = MaskablePPO(**kwargs)
