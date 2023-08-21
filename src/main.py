@@ -13,7 +13,7 @@ from src.experiments.experiments import (
     optuna_SAC_discrete
 )
 
-debug = True
+debug = False
 @hydra.main(config_path="../conf", config_name="config", version_base=None)
 def main(cfg: DictConfig) -> DictConfig:
     for key, value in cfg.params[0].items():
