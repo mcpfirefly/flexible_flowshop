@@ -320,7 +320,7 @@ class PPO_Optuna:
                 trial,
                 n_eval_episodes=self.N_EVAL_EPISODES,
                 eval_freq=self.EVAL_FREQ,
-                deterministic=True,
+                deterministic=False,
                 best_model_save_path_in=self.best_model_save_path,
                 log_path_in=self.optuna_log_path,
             )
@@ -616,7 +616,7 @@ class PPO_Manual_Parameters:
                 n_eval_episodes=self.N_EVAL_EPISODES,
                 eval_freq=self.EVAL_FREQ,
                 best_model_save_path=self.best_model_save_path,
-                deterministic=True,
+                deterministic=False,
                 verbose=1,
             )
         else:
@@ -627,7 +627,7 @@ class PPO_Manual_Parameters:
                 eval_freq=self.EVAL_FREQ,
                 best_model_save_path=self.best_model_save_path,
                 verbose=1,
-                deterministic=True,
+                deterministic=False,
             )
 
         obs = model.env.reset()
@@ -689,7 +689,7 @@ class PPO_Test_Trained:
                 n_eval_episodes=self.N_EVAL_EPISODES,
                 eval_freq=self.EVAL_FREQ,
                 best_model_save_path=self.best_model_save_path,
-                deterministic=True,
+                deterministic=False,
                 verbose=1,
             )
         else:
@@ -705,7 +705,7 @@ class PPO_Test_Trained:
                 eval_freq=self.EVAL_FREQ,
                 best_model_save_path=self.best_model_save_path,
                 verbose=1,
-                deterministic=True,
+                deterministic=False,
             )
 
         obs = model.env.reset()
@@ -730,10 +730,10 @@ class PPO_Test_Trained:
                     action, _ = model.predict(
                         obs,
                         action_masks=self.env.valid_action_mask(),
-                        deterministic=True,
+                        deterministic=False,
                     )
                 else:
-                    action, _ = model.predict(obs, deterministic=True)
+                    action, _ = model.predict(obs, deterministic=False)
 
                 obs, rewards, done, info = model.env.step(action)
             print("Episode terminated!")
