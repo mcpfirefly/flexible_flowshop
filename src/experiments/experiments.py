@@ -617,7 +617,7 @@ class PPO_Manual_Parameters:
                 eval_freq=self.EVAL_FREQ,
                 best_model_save_path=self.best_model_save_path,
                 deterministic = True,
-                verbose=2,
+                verbose=1,
             )
         else:
             model = PPO(**kwargs)
@@ -626,7 +626,7 @@ class PPO_Manual_Parameters:
                 n_eval_episodes=self.N_EVAL_EPISODES,
                 eval_freq=self.EVAL_FREQ,
                 best_model_save_path=self.best_model_save_path,
-                verbose=2,
+                verbose=1,
                 deterministic=True,
             )
 
@@ -690,7 +690,7 @@ class PPO_Test_Trained:
                 eval_freq=self.EVAL_FREQ,
                 best_model_save_path=self.best_model_save_path,
                 deterministic = True,
-                verbose=2,
+                verbose=1,
             )
         else:
             model_to_load = "C:/Users/INOSIM/PycharmProjects/flexible_flowshop2/src/outputs/2023-08-11/14-37-56/ppo_manual/Training/Saved_Models/best_model.zip"
@@ -704,7 +704,7 @@ class PPO_Test_Trained:
                 n_eval_episodes=self.N_EVAL_EPISODES,
                 eval_freq=self.EVAL_FREQ,
                 best_model_save_path=self.best_model_save_path,
-                verbose=2,
+                verbose=1,
                 deterministic=True,
             )
 
@@ -800,8 +800,9 @@ class PPO_Simple_Run:
                     obs, reward, done, info = self.env.step(action)
 
                 else:  # SEND NOOP ACTION
-                    self.env.legal_operations[-1] = True
-                    obs, reward, done, info = self.env.step(len(self.ORDERS))
+                    if self.use_noop:
+                        self.env.legal_operations[-1] = True
+                        obs, reward, done, info = self.env.step(len(self.ORDERS))
 
             array_makespans = list(self.terminated_makespan.values())
             array_occ = list(self.terminated_occ.values())

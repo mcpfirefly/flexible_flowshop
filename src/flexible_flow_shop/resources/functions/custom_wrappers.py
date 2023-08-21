@@ -6,7 +6,6 @@ from gym.spaces import Discrete, Box, MultiDiscrete
 from sb3_contrib.common.maskable.callbacks import MaskableEvalCallback
 from stable_baselines3.common.callbacks import EvalCallback
 
-
 class CustomMaskableEvalCallback(MaskableEvalCallback):
     def __init__(
         self,
@@ -15,7 +14,7 @@ class CustomMaskableEvalCallback(MaskableEvalCallback):
         eval_freq,
         best_model_save_path,
         deterministic=False,
-        verbose=0,
+        verbose=1,
         log_path=None,
     ):
         super().__init__(
@@ -195,7 +194,12 @@ class RewardWrapper_Completion(gym.RewardWrapper):
 class ActionWrapper_Discrete(gym.ActionWrapper):
     def __init__(self, env):
         super().__init__(env)
-        self._action_space = Discrete(len(self.orders) + 1)
+
+        if self.use_noop:
+            action_length = len(self.orders) + 1
+        else:
+            action_length = len(self.orders)
+        self._action_space = Discrete(action_length)
 
     def action(self, act):
         return act
@@ -204,10 +208,15 @@ class ActionWrapper_Discrete(gym.ActionWrapper):
 class ActionWrapper_DiscreteProbs(gym.ActionWrapper):
     def __init__(self, env):
         super().__init__(env)
-        high = np.ones(len(self.orders) + 1)
-        low = np.zeros(len(self.orders) + 1)
+
+        if self.use_noop:
+            action_length = len(self.orders) + 1
+        else:
+            action_length = len(self.orders)
+        high = np.ones(action_length)
+        low = np.zeros(action_length)
         self._action_space = Box(
-            low=-high, high=high, shape=(len(self.orders) + 1,), dtype=np.float
+            low=-high, high=high, shape=(action_length,), dtype=np.float
         )
 
     def action(self, act):
@@ -316,7 +325,12 @@ class ProbabilitiesActionMaskEnv(gym.ActionWrapper):
 class ActionWrapper_DiscreteWithBuffer(gym.ActionWrapper):
     def __init__(self, env):
         super().__init__(env)
-        self._action_space = MultiDiscrete([len(self.orders) + 1, 2, 6])
+
+        if self.use_noop:
+            action_length = len(self.orders) + 1
+        else:
+            action_length = len(self.orders)
+        self._action_space = MultiDiscrete([action_length, 2, 6])
         # Operation to allocate, buffer_usage, buffer_time/5
 
     def action(self, act):
@@ -330,8 +344,13 @@ class ActionWrapper_DiscreteWithBuffer(gym.ActionWrapper):
 class ActionWrapper_DiscreteProbsWithBuffer(gym.ActionWrapper):
     def __init__(self, env):
         super().__init__(env)
+
+        if self.use_noop:
+            action_length = len(self.orders) + 1
+        else:
+            action_length = len(self.orders)
         shape_with_buffer = (
-            len(self.orders) + 1 + 2 + 6
+            action_length + 2 + 6
         )  # Operations, NOOP, use_buffer, time_buffer
         high = np.ones(shape_with_buffer)
         low = np.zeros(shape_with_buffer)
@@ -340,13 +359,18 @@ class ActionWrapper_DiscreteProbsWithBuffer(gym.ActionWrapper):
         )
 
     def action(self, act):
-        action = np.argmax(act[0 : len(self.orders) + 1])
+
+        if self.use_noop:
+            action_length = len(self.orders) + 1
+        else:
+            action_length = len(self.orders)
+        action = np.argmax(act[0 : action_length])
         if action != len(self.orders):
             self.orders[action].go_to_buffer = np.argmax(
-                act[len(self.orders) + 1 :][:2]
+                act[action_length :][:2]
             )
             self.orders[action].time_in_buffer = (
-                np.argmax(act[len(self.orders) + 1 + 2 :][:6]) / 5
+                np.argmax(act[action_length + 2 :][:6]) / 5
             )
         return action
 

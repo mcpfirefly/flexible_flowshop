@@ -10,10 +10,10 @@
 # config.yaml
 
 params:
-  - N_TIMESTEPS: 2000
+  - N_TIMESTEPS: 100000
     seed: None
     masking: True
-    reward: TASSEL
+    reward: MAKESPAN
     buffer_usage: no_buffers
     time_in_buffer_custom: 1
     workbook: kopanos
@@ -26,3 +26,4 @@ params:
     recreate_solution: None
     test: ppo_manual
     optuna_trials: 5
+    use_noop: False

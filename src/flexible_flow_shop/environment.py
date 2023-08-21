@@ -11,6 +11,7 @@ from src.flexible_flow_shop.resources.functions.scheduling_functions import get_
 from src.flexible_flow_shop.resources.functions.scheduling_functions import (
     get_tassel_reward,
     check_if_can_be_legal_again,
+    clean_status,
     get_impact_factor,
 )
 
@@ -90,7 +91,9 @@ class flexible_flow_shop(gym.Env):
             else False
             for order in self.orders
         ]
-        self.legal_operations.append(False)
+        self.use_noop = self.study.use_noop
+        if self.use_noop:
+            self.legal_operations.append(False)
         self.legal_operations = np.array(self.legal_operations)
         self.history_default_changeover = np.zeros(self.study.N_OPERATIONS)
         self.legal_jobs = np.array([True for product in self.study.JOBS], dtype=int)
@@ -99,6 +102,7 @@ class flexible_flow_shop(gym.Env):
             (self.study.N_OPERATIONS), dtype=float
         )
         self.jobs_completion = np.zeros(len(self.study.JOBS), dtype=float)
+
         self.operations_completion = np.zeros((self.study.N_OPERATIONS), dtype=int)
         self.time_until_machine_free = np.zeros(
             len(self.study.MACHINES), dtype=float
@@ -143,6 +147,9 @@ class flexible_flow_shop(gym.Env):
         self.stage_progression = np.zeros(len(self.study.STAGES), dtype=float)
         self.time_machines_idle = np.zeros(len(self.study.MACHINES), dtype=float)
         self.time_machines_idle_per_stage = self.time_machines_idle_per_stage = [[self.time_machines_idle[idx] for idx in stage_indices] for stage_indices in self.study.INDEX_MACHINES]
+        self.tassel_holes = 0
+        self.tassel_holes_current = 0
+        self.tassel_holes_past = 0
         self.completion_score = np.array(0, dtype=float)
         self.sim_duration = (
             0  # small positive constant to avoid issues when dividing over makespan
@@ -191,10 +198,16 @@ class flexible_flow_shop(gym.Env):
 
     def valid_action_mask(self):
         """Only valid for discrete environment. Used with MaskablePPO"""
-        if self.legal_operations[:len(self.legal_operations)-1].any():
-            self.legal_operations[-1] = False
-        else:
-            self.legal_operations[-1] = True
+
+        if self.use_noop:
+            if self.legal_operations[:len(self.legal_operations)-1].any():
+                self.legal_operations[-1] = False
+            else:
+                self.legal_operations[-1] = True
+        use_mask_busy_machines = False
+        if use_mask_busy_machines:
+            mask_machines = np.tile(self.legal_machines,len(self.study.JOBS))
+            self.legal_operations=self.legal_operations*mask_machines
 
         if self.study.heuristics_policy_rl != None:
             alpha = 0.2
@@ -204,18 +217,21 @@ class flexible_flow_shop(gym.Env):
                                                                     self.counter_heuristics, None,
                                                                     self.study.heuristics_policy_rl,
                                                                     self.study.CHANGEOVER)
-
-            mask_heuristics = np.zeros(np.array(len(self.orders)+1))
+            if self.use_noop:
+                mask_heuristics = np.zeros(np.array(len(self.orders)+1))
+            else:
+                mask_heuristics = np.zeros(np.array(len(self.orders)))
 
             if isinstance(legal_operations_heuristics, list):
                 for index in legal_operations_heuristics:
                     mask_heuristics[index] = 1
             else:
-                if legal_operations_heuristics == len(self.orders):
-                    mask_heuristics[-1] = 1
-                else:
-                    mask_heuristics[legal_operations_heuristics] = 1
-
+                if self.use_noop:
+                    if legal_operations_heuristics == len(self.orders):
+                        mask_heuristics[-1] = 1
+                    else:
+                        mask_heuristics[legal_operations_heuristics] = 1
+                mask_heuristics[legal_operations_heuristics] = 1
 
             random_variable = np.random.random()
             if random_variable < (1 - alpha):
@@ -259,7 +275,12 @@ class flexible_flow_shop(gym.Env):
         legalize_with_release_dates(self)
         self.tassel_reward = get_tassel_reward(self,action)
 
-        if self.legal_operations[action] and action != len(self.study.ORDERS):
+        if self.use_noop:
+            scheduling_condition = self.legal_operations[action] and action != len(self.study.ORDERS)
+        else:
+            scheduling_condition = self.legal_operations[action]
+
+        if scheduling_condition:
             order = self.orders[action]
             if self.study.action_space == "continuous" or (self.study.masking == False and self.study.action_space == "discrete"):
                 self.reward = 1
@@ -411,6 +432,8 @@ class flexible_flow_shop(gym.Env):
                             yield self.factory.buffer[buffer_stage].release(request)
 
             if self.machine_queue[order.machine] < self.MAX_QUEUE_SIZE:
+                #print(f"Order allocated! Environment: {self.sim_duration} [h], Timestep: {self.timestep}, Product: {order.product_code}, Machine: {order.machine}")
+                #print(f"Completion score: {self.completion_score} ")
                 assign_position_in_schedule(
                     self, order, self.study.N_OPERATIONS, self.study.MACHINES
                 )
@@ -441,26 +464,17 @@ class flexible_flow_shop(gym.Env):
                 with self.factory.stage[i].get(
                     lambda machine: machine == order.machine
                 ) as request:
-                    self.time_until_job_done[
-                        order.order_id
-                    ] = self.time_until_machine_free[order.machine_id]
-                    self.time_until_operation_done[
-                        order.position_in_schedule
-                    ] = self.time_until_machine_free[order.machine_id]
-                    self.current_product_in_machine[order.machine_id].append(
-                        order.product_code
-                    )
+                    #self.time_until_job_done[order.order_id] = self.time_until_machine_free[order.machine_id]
+                    #self.time_until_operation_done[order.position_in_schedule] = self.time_until_machine_free[order.machine_id]
+                    self.current_product_in_machine[order.machine_id].append(order.product_code)
                     yield request
                     self.stage_visited_indicator[order.stage] = 1
                     self.legal_machines[order.machine_id] = 0
                     self.machine_queue[order.machine] -= 1
-                    self.stage_progression[i] += 1 / (
-                        self.study.TOTAL_JOBS_PER_STAGE[i]
-                    )
-                    self.stages_queue_size = [
-                        len(self.factory.stage[i].get_queue)
-                        for i in range(len(self.study.STAGES))
-                    ]
+                    self.stage_progression[i] += 1 / (self.study.TOTAL_JOBS_PER_STAGE[i])
+                    self.stages_queue_size = [len(self.factory.stage[i].get_queue) for i in range(len(self.study.STAGES))]
+
+                    clean_status(self)
 
                     order.machine = request.value
 
@@ -636,15 +650,9 @@ class flexible_flow_shop(gym.Env):
                                     order.position_in_schedule
                                 ]
                             )
-                            self.time_until_machine_free[
-                                order.machine_id
-                            ] = remaining_changeover_time
-                            self.time_until_operation_done[
-                                order.position_in_schedule
-                            ] = remaining_changeover_time
-                            self.time_until_job_done[
-                                order.order_id
-                            ] = remaining_changeover_time
+                            self.time_until_machine_free[next_order.machine_id] = remaining_changeover_time
+                            #self.time_until_operation_done[next_order.position_in_schedule] = remaining_changeover_time
+                            #self.time_until_job_done[next_order.order_id] = remaining_changeover_time
                             yield env.timeout(remaining_changeover_time)
 
                         order.time_changeover_ends = self.env.now
@@ -673,6 +681,8 @@ class flexible_flow_shop(gym.Env):
                     self.current_product_in_machine[order.machine_id].pop(0)
 
             else:
+                #print(f"Legal action was selected, but desired machine is busy! Skip")
+                #self.reward = -10
                 if order.visited_buffer == True:
                     self.legal_operations[order.operation_id] = True
 
@@ -690,7 +700,7 @@ class flexible_flow_shop(gym.Env):
         """
         #print("Legal actions: {}".format(np.array(np.argwhere(self.legal_operations),dtype=int).flatten().tolist()))
         #print("Action selected from legal actions: {}".format(action))
-        if not self.legal_operations[action]:
+        if not self.legal_operations[action] and self.legal_operations.any():
             self.episode_length += 1
 
             if self.finished_orders.all() or np.round(self.completion_score, 5) == 1.0:
@@ -745,12 +755,16 @@ class flexible_flow_shop(gym.Env):
 
         else:
             self.timestep = get_timestep(self, action)
+            #print(f"Timestep: {self.timestep}")
             self.episode_length += 1
             past_variables(self)
             self.env.process(self._scheduling(self.env, action))
             self.env.run(until=self.env.now + self.timestep)
             current_variables(self)
 
+
+            if not(self.legal_operations.any()):
+                a=1
             self.makespan_reward = -(
                 np.around(self.sim_duration_current, 4)
                 - np.around(self.sim_duration_past, 4)
@@ -788,6 +802,7 @@ class flexible_flow_shop(gym.Env):
             }
 
             if self.finished_orders.all() or np.round(self.completion_score, 5) == 1.0:
+                print("------------------------------------------------------")
                 print("------------------------------------------------------")
                 print(
                     "Episode terminated, good job! Completion score: {}%".format(

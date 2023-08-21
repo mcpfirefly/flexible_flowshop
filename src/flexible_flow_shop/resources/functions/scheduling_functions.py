@@ -28,10 +28,10 @@ def prepare_historical_and_flags(self, order, machine, action):
 def legalize_with_release_dates(self):
     for i, order in enumerate(self.orders):
         if (
-            order.release_date >= self.sim_duration
-            and order.stage == 0
-            and order.scheduled_by_agent == 0
-            and order.valid == 1
+                order.release_date >= self.sim_duration
+                and order.stage == 0
+                and order.scheduled_by_agent == 0
+                and order.valid == 1
         ):
             self.legal_operations[order.operation_id] = True
 
@@ -40,10 +40,10 @@ def get_orders_next_stage(self, order, STAGES):
     if order.stage != len(STAGES) - 1:
         for i in range(len(self.orders)):
             if (
-                self.orders[i].order_id == order.order_id
-                and self.orders[i].scheduled == 0
-                and self.orders[i].stage > order.stage
-                and self.orders[i].valid == 1
+                    self.orders[i].order_id == order.order_id
+                    and self.orders[i].scheduled == 0
+                    and self.orders[i].stage > order.stage
+                    and self.orders[i].valid == 1
             ):
                 next_stage = self.orders[i].stage
                 break
@@ -57,10 +57,10 @@ def flag_as_legals_in_next_stage(self, order, STAGES):
         for j in range(len(self.orders)):
             order_next_stage = self.orders[j]
             if (
-                order_next_stage.order_id == order.order_id
-                and self.orders[j].scheduled == 0
-                and order_next_stage.stage == order.next_stage
-                and order_next_stage.valid == 1
+                    order_next_stage.order_id == order.order_id
+                    and self.orders[j].scheduled == 0
+                    and order_next_stage.stage == order.next_stage
+                    and order_next_stage.valid == 1
             ):
                 self.legal_operations[order_next_stage.operation_id] = True
                 self.legal_jobs[order_next_stage.order_id] = True
@@ -70,22 +70,22 @@ def disable_operations_of_same_job_in_same_stage(self, order):
     for j in range(len(self.orders)):
         order_same_stage = self.orders[j]
         if (
-            order_same_stage.order_id == order.order_id
-            and order_same_stage.stage == order.stage
-            and order_same_stage.machine != order.machine
+                order_same_stage.order_id == order.order_id
+                and order_same_stage.stage == order.stage
+                and order_same_stage.machine != order.machine
         ):
             self.legal_operations[order_same_stage.operation_id] = False
 
-def check_if_can_be_legal_again(self, order):
 
+def check_if_can_be_legal_again(self, order):
     order_list = []
     for j in range(len(self.orders)):
         order_same_stage = self.orders[j]
         if (
-            order_same_stage.order_id == order.order_id
-            and order_same_stage.stage == order.stage
-            and order_same_stage.machine != order.machine
-            and order_same_stage.scheduled_by_agent == True
+                order_same_stage.order_id == order.order_id
+                and order_same_stage.stage == order.stage
+                and order_same_stage.machine != order.machine
+                and order_same_stage.scheduled_by_agent == True
         ):
             order_list.append(order_same_stage.operation_id)
     if len(order_list) > 0:
@@ -93,6 +93,8 @@ def check_if_can_be_legal_again(self, order):
 
     else:
         return True
+
+
 def update_time_arrays(self):
     # Substract the current simulation time to the leftover time jobs array
     self.time_until_job_done = np.array(
@@ -106,66 +108,88 @@ def update_time_arrays(self):
     )  # substract env.now
 
 
-def get_tassel_reward(self,action):
+def get_tassel_reward(self, action):
+    self.time_machines_idle = [item for sublist in self.time_machines_idle_per_stage for item in sublist]
 
-    if action == len(self.study.ORDERS) or not(self.legal_operations[action]):
-        # If action is NOOP, consider holes in all machines.
+    if self.use_noop:
+        condition = (action == len(self.study.ORDERS)) or not (self.legal_operations[action])
+    else:
+        condition = not (self.legal_operations[action])
+
+    if condition:
+        # If action is NOOPor not legal, consider holes in all machines.
         tassel_processing_time = 0
-        tassel_machines_holes = sum(np.array(self.time_machines_idle))
-        tassel_reward = tassel_processing_time - tassel_machines_holes
-
+        self.tassel_holes_current = sum(np.array(self.time_machines_idle))
     elif self.machine_queue[self.orders[action].machine] >= self.MAX_QUEUE_SIZE:
         # If action is legal, but machine is busy and queue is unavailable, consider holes from the corresponding stage
         # plus remaining time until operation can enter the queue. This operation won't enter the schedule
         machine = self.orders[action].machine_id
         tassel_processing_time = 0
-        tassel_machines_holes = sum(self.time_machines_idle) + self.time_until_machine_free[machine]
-        tassel_reward = tassel_processing_time - tassel_machines_holes
+        self.tassel_holes_current = sum(self.time_machines_idle)
     else:
         # if action is legal and machine or queue are directly available
-        machine = self.orders[action].machine_id
+        #machine = self.orders[action].machine_id
         tassel_processing_time = self.orders[action].processing_time
-        tassel_machines_holes = sum(self.time_machines_idle) - self.time_machines_idle[machine]
-        tassel_reward = tassel_processing_time - tassel_machines_holes
+        self.tassel_holes_current = sum(self.time_machines_idle)
+
+    holes_now = (self.tassel_holes_current - self.tassel_holes_past)
+    if holes_now < 0:
+        holes_now = 0
+    tassel_reward = tassel_processing_time - holes_now
+
+    #print(f"Tassel reward: {tassel_reward}")
 
     return tassel_reward
-def get_modified_tassel_reward(self,action):
 
-    if action == len(self.study.ORDERS) or not(self.legal_operations[action]):
+
+def get_modified_tassel_reward(self, action):
+    self.time_machines_idle = [item for sublist in self.time_machines_idle_per_stage for item in sublist]
+    if self.use_noop:
+        condition = len(self.study.ORDERS) or not (self.legal_operations[action])
+    else:
+        condition = not (self.legal_operations[action])
+
+    if condition:
         # If action is NOOP, consider holes in all machines.
         tassel_processing_time = 0
-        tassel_machines_holes = sum(np.array(self.time_machines_idle_per_stage,dtype=object).sum())
-        tassel_reward = tassel_processing_time - tassel_machines_holes
-
+        self.tassel_holes_current = sum(np.array(self.time_machines_idle_per_stage, dtype=object).sum())
+        holes_now = (self.tassel_holes_current - self.tassel_holes_past)
+        tassel_reward = tassel_processing_time - holes_now
     elif self.machine_queue[self.orders[action].machine] >= self.MAX_QUEUE_SIZE:
         # If action is legal, but machine is busy and queue is unavailable, consider holes from the corresponding stage
         # plus remaining time until operation can enter the queue. This operation won't enter the schedule
         stage = self.orders[action].stage
         machine = self.orders[action].machine_id
         tassel_processing_time = 0
-        tassel_machines_holes = sum(self.time_machines_idle_per_stage[stage]) + self.time_until_machine_free[machine]
-        tassel_reward = tassel_processing_time - tassel_machines_holes
+        self.tassel_holes_current = sum(self.time_machines_idle_per_stage[stage]) + self.time_until_machine_free[machine]
+        holes_now = (self.tassel_holes_current - self.tassel_holes_past)
+        tassel_reward = tassel_processing_time - holes_now
     else:
         # if action is legal and machine or queue are directly available
         stage = self.orders[action].stage
         machine = self.orders[action].machine_id
         tassel_processing_time = self.orders[action].processing_time
-        tassel_machines_holes = sum(self.time_machines_idle_per_stage[stage]) - self.time_machines_idle[machine]
-        tassel_reward = tassel_processing_time - tassel_machines_holes
+        self.tassel_holes_current = sum(self.time_machines_idle_per_stage[stage]) - self.time_machines_idle[machine]
+        holes_now = (self.tassel_holes_current - self.tassel_holes_past)
+        tassel_reward = tassel_processing_time - holes_now
 
     return tassel_reward
+
 
 def set_time_machines_idle(self):
 
     for stage, machines in enumerate(self.study.INDEX_MACHINES):
         for machine, i in enumerate(machines):
             if self.stage_progression[stage] < 0.999:
-                if self.legal_machines[i] and self.stage_visited_indicator[stage]:  # if the i machine is not active and the stage has started producing, then add up idle time
+                if self.legal_machines[i] and self.stage_visited_indicator[
+                    stage]:  # if the i machine is not active and the stage has started producing, then add up idle time
                     self.time_machines_idle_per_stage[stage][machine] += self.timestep
                 else:
                     self.time_machines_idle_per_stage[stage][machine] = 0
             else:
                 self.time_machines_idle_per_stage[stage][machine] = 0
+
+    self.time_machines_idle = [item for sublist in self.time_machines_idle_per_stage for item in sublist]
 def get_timestep(self, action):
     round_value = 3
     self.time_until_job_done = np.around(
@@ -177,38 +201,57 @@ def get_timestep(self, action):
     self.time_until_machine_free = np.around(
         np.array(self.time_until_machine_free.clip(min=0)), round_value
     )  # make negative values equal to zero
+    time_vector = self.time_until_job_done
+    if self.use_noop:
+        if time_vector.any() == False:  # needed in first timestep
+            timestep = 0.01
 
-    if self.time_until_operation_done.any() == False:  # needed in first timestep
-        timestep = 0.01
+        elif action == len(self.orders) and self.use_noop:
+            min_non_zero = np.min(time_vector[np.nonzero(time_vector)])
+            timestep = min_non_zero
+            # print("NO OP: Go to the next time step until we have a legal action! Jump: {}".format(timestep))
 
-    elif action == len(self.orders):
-        min_non_zero = np.min(
-            self.time_until_operation_done[np.nonzero(self.time_until_operation_done)]
-        )
-        timestep = min_non_zero
-        # print("NO OP: Go to the next time step until we have a legal action! Jump: {}".format(timestep))
 
-    elif self.legal_machines_per_stage[self.orders[action].stage].any() == True:
-        timestep = 0.01
+        elif self.legal_machines_per_stage[self.orders[action].stage].any():
+            timestep = 0.01
 
+        else:
+            min_non_zero = np.min(time_vector[np.nonzero(time_vector)])
+            timestep = min_non_zero
+            # print("ELSE: Go to the next time step! Jump: {}".format(timestep))
     else:
-        min_non_zero = np.min(
-            self.time_until_operation_done[np.nonzero(self.time_until_operation_done)]
-        )
-        timestep = min_non_zero
-        # print("ELSE: Go to the next time step! Jump: {}".format(timestep))
+        if not(time_vector.any()): #occurs at the first and last timestep
+            timestep = 0.01
 
+        elif not(self.legal_operations[action]):
+            #print("No legal actions at this moment!")
+            min_non_zero = np.min(time_vector[np.nonzero(time_vector)])
+            timestep = min_non_zero
+
+        elif self.legal_machines_per_stage[self.orders[action].stage].any():
+            timestep = 0.01
+
+        else:
+            min_non_zero = np.min(time_vector[np.nonzero(time_vector)])
+            timestep = min_non_zero
+            # print("ELSE: Go to the next time step! Jump: {}".format(timestep))
     return timestep
 
 
+def clean_status(self):
+    for i, value in enumerate(self.stage_progression):
+        if value > 0.99:
+            self.legal_machines_per_stage[i] = np.ones(len(self.legal_machines_per_stage[i]), dtype=bool)
+            self.legal_machines = np.array([item for items in self.legal_machines_per_stage for item in items])
+
 def generate_results(
-    orders,
-    ORDERS,
-    episode_makespan,
-    FINISHED_ORDERS,
-    generate_heuristic_schedules,
-    test,
-    experiment_folder,
+        orders,
+        ORDERS,
+        episode_makespan,
+        FINISHED_ORDERS,
+        generate_heuristic_schedules,
+        test,
+        experiment_folder,
 ):
     """Function that generates the results of the experiment and stores them
     into an Excel Workbook, whose name changes dynamically based on the
@@ -339,12 +382,12 @@ def past_variables(self):
     self.sim_duration_past = self.sim_duration_current
     self.episode_length_past = self.episode_length_current
     self.job_completion_past = self.job_completion_current
+    self.tassel_holes_past = self.tassel_holes_current
 
 
 def generate_schedule_first_stage(
-    env, current_legal_operations, counter, generate_heuristic_schedules, heuristics_policy_rl, CHANGEOVER
+        env, current_legal_operations, counter, generate_heuristic_schedules, heuristics_policy_rl, CHANGEOVER
 ):
-
     a = list(
         np.arange(0, 495, 17)
     )  # ACTION INDICES FOR FIRST STAGE OPERATIONS IN MACHINE 1
@@ -361,13 +404,13 @@ def generate_schedule_first_stage(
         first_stage_in_progress = 1
         if generate_heuristic_schedules == "FIFO" or heuristics_policy_rl == "FIFO":
             action = np.random.choice(current_legal_operations)
-            action = search_actions_FIFO(env,action, first_stage_operations,heuristics_policy_rl)
+            action = search_actions_FIFO(env, action, first_stage_operations, heuristics_policy_rl)
         elif generate_heuristic_schedules == "EDD" or heuristics_policy_rl == "EDD":
-            action = search_actions_EDD(env, first_stage_operations,heuristics_policy_rl)
+            action = search_actions_EDD(env, first_stage_operations, heuristics_policy_rl)
         elif generate_heuristic_schedules == "SPT" or heuristics_policy_rl == "SPT":
-            action = search_actions_SPT(env, first_stage_operations,heuristics_policy_rl)
+            action = search_actions_SPT(env, first_stage_operations, heuristics_policy_rl)
         elif generate_heuristic_schedules == "SCT" or heuristics_policy_rl == "SCT":
-            action = search_actions_SCT(env, first_stage_operations, CHANGEOVER,heuristics_policy_rl)
+            action = search_actions_SCT(env, first_stage_operations, CHANGEOVER, heuristics_policy_rl)
     else:
         first_stage_in_progress = 0
         action = None
@@ -375,7 +418,7 @@ def generate_schedule_first_stage(
     return action, first_stage_in_progress, counter
 
 
-def search_actions_FIFO(env, action, operations,heuristics_policy_rl):
+def search_actions_FIFO(env, action, operations, heuristics_policy_rl):
     new_actions_machine_free = []
     new_actions_machine_busy = []
     order = env.orders[action]
@@ -383,9 +426,9 @@ def search_actions_FIFO(env, action, operations,heuristics_policy_rl):
     for _, new_action in enumerate(operations):
         new_order = env.orders[new_action]
         if (
-            new_order.order_id == order.order_id
-            and new_order.stage == order.stage
-            and new_order.valid == 1
+                new_order.order_id == order.order_id
+                and new_order.stage == order.stage
+                and new_order.valid == 1
         ):
             new_possible_action = new_order.operation_id
             if env.legal_machines[env.orders[new_possible_action].machine_id] == 1:
@@ -406,7 +449,7 @@ def search_actions_FIFO(env, action, operations,heuristics_policy_rl):
     return action
 
 
-def search_actions_EDD(env, operations,heuristics_policy_rl):
+def search_actions_EDD(env, operations, heuristics_policy_rl):
     new_order_dd = []
     new_order_id = []
     new_order_ids = []
@@ -428,7 +471,7 @@ def search_actions_EDD(env, operations,heuristics_policy_rl):
     return action
 
 
-def search_actions_SPT(env, operations,heuristics_policy_rl):
+def search_actions_SPT(env, operations, heuristics_policy_rl):
     new_order_ids = []
 
     # actions with free machines
@@ -469,7 +512,7 @@ def search_actions_SPT(env, operations,heuristics_policy_rl):
     return action
 
 
-def search_actions_SCT(env, operations, CHANGEOVER,heuristics_policy_rl):
+def search_actions_SCT(env, operations, CHANGEOVER, heuristics_policy_rl):
     new_order_ids = []
 
     # actions with free machines
@@ -527,25 +570,25 @@ def search_actions_SCT(env, operations, CHANGEOVER,heuristics_policy_rl):
 
 
 def search_options_with_available_machines(
-    env, action, current_legal_operations, generate_heuristic_schedules, heuristics_policy_rl, CHANGEOVER
+        env, action, current_legal_operations, generate_heuristic_schedules, heuristics_policy_rl, CHANGEOVER
 ):
     if generate_heuristic_schedules == "FIFO":
-        action = search_actions_FIFO(env, action, current_legal_operations,heuristics_policy_rl)
+        action = search_actions_FIFO(env, action, current_legal_operations, heuristics_policy_rl)
 
     elif generate_heuristic_schedules == "EDD":
-        action = search_actions_EDD(env, current_legal_operations,heuristics_policy_rl)
+        action = search_actions_EDD(env, current_legal_operations, heuristics_policy_rl)
 
     elif generate_heuristic_schedules == "SPT":
-        action = search_actions_SPT(env, current_legal_operations,heuristics_policy_rl)
+        action = search_actions_SPT(env, current_legal_operations, heuristics_policy_rl)
 
     elif generate_heuristic_schedules == "SCT":
-        action = search_actions_SCT(env, current_legal_operations, CHANGEOVER,heuristics_policy_rl)
+        action = search_actions_SCT(env, current_legal_operations, CHANGEOVER, heuristics_policy_rl)
 
     return action
 
 
 def get_action_heuristics(
-    env, current_legal_operations, counter, generate_heuristic_schedules, heuristics_policy_rl, CHANGEOVER
+        env, current_legal_operations, counter, generate_heuristic_schedules, heuristics_policy_rl, CHANGEOVER
 ):
     action, first_stage_in_progress, counter = generate_schedule_first_stage(
         env, current_legal_operations, counter, generate_heuristic_schedules, heuristics_policy_rl, CHANGEOVER
@@ -570,45 +613,45 @@ def get_action_heuristics(
 
 
 def GeneratePreliminaryHeuristicResultsFiles(
-    self,
-    filename,
-    generate_heuristic_schedules,
-    episode_makespan,
-    episode_oc_costs,
-    episode_wl,
+        self,
+        filename,
+        generate_heuristic_schedules,
+        episode_makespan,
+        episode_oc_costs,
+        episode_wl,
 ):
     with open(
-        "{}/{}_Mks_{}_OCC_{}_WL_{}_Sequences.txt".format(
-            filename,
-            generate_heuristic_schedules,
-            episode_makespan,
-            episode_oc_costs,
-            episode_wl,
-        ),
-        "w",
+            "{}/{}_Mks_{}_OCC_{}_WL_{}_Sequences.txt".format(
+                filename,
+                generate_heuristic_schedules,
+                episode_makespan,
+                episode_oc_costs,
+                episode_wl,
+            ),
+            "w",
     ) as f:
         for i in range(len(self.heuristics_products_per_stage)):
             print(
                 "Stage {}: {}".format(i, self.heuristics_products_per_stage[i]), file=f
             )
     with open(
-        "{}/{}_Mks_{}_OCC_{}_WL_{}_Solution.txt".format(
-            filename,
-            generate_heuristic_schedules,
-            episode_makespan,
-            episode_oc_costs,
-            episode_wl,
-        ),
-        "w",
+            "{}/{}_Mks_{}_OCC_{}_WL_{}_Solution.txt".format(
+                filename,
+                generate_heuristic_schedules,
+                episode_makespan,
+                episode_oc_costs,
+                episode_wl,
+            ),
+            "w",
     ) as f:
         print("Solution in this episode: {}".format(self.heuristics_solution), file=f)
 
 
 def GenerateHeuristicResultsFiles(
-    data, filename, generate_heuristic_schedules, info_heuristics
+        data, filename, generate_heuristic_schedules, info_heuristics
 ):
     with open(
-        "{}/{}_Summary.txt".format(filename, generate_heuristic_schedules), "w"
+            "{}/{}_Summary.txt".format(filename, generate_heuristic_schedules), "w"
     ) as f:
         for key, value in info_heuristics.items():
             print("{}: {}".format(key, value), file=f)
