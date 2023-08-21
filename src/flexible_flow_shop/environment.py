@@ -651,8 +651,8 @@ class flexible_flow_shop(gym.Env):
                                 ]
                             )
                             self.time_until_machine_free[next_order.machine_id] = remaining_changeover_time
-                            #self.time_until_operation_done[next_order.position_in_schedule] = remaining_changeover_time
-                            #self.time_until_job_done[next_order.order_id] = remaining_changeover_time
+                            self.time_until_operation_done[next_order.position_in_schedule] = remaining_changeover_time
+                            self.time_until_job_done[next_order.order_id] = remaining_changeover_time
                             yield env.timeout(remaining_changeover_time)
 
                         order.time_changeover_ends = self.env.now
