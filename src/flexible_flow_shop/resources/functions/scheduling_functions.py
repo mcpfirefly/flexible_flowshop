@@ -201,7 +201,7 @@ def get_timestep(self, action):
     self.time_until_machine_free = np.around(
         np.array(self.time_until_machine_free.clip(min=0)), round_value
     )  # make negative values equal to zero
-    time_vector = self.time_until_operation_done
+    time_vector = self.time_until_job_done
     if self.use_noop:
         if time_vector.any() == False:  # needed in first timestep
             timestep = 0.01
