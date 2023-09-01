@@ -204,13 +204,9 @@ class flexible_flow_shop(gym.Env):
                 self.legal_operations[-1] = False
             else:
                 self.legal_operations[-1] = True
-        use_mask_busy_machines = False
-        if use_mask_busy_machines:
-            mask_machines = np.tile(self.legal_machines,len(self.study.JOBS))
-            self.legal_operations=self.legal_operations*mask_machines
 
         if self.study.heuristics_policy_rl != None:
-            alpha = 0.2
+            alpha = 0.4
             mask_ppo = self.legal_operations
             legal_operations_ppo = list(np.argwhere(np.array(mask_ppo, dtype=int)).flatten())
             legal_operations_heuristics, self.counter_heuristics = get_action_heuristics(self, legal_operations_ppo,

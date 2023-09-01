@@ -597,10 +597,14 @@ def get_action_heuristics(
     if first_stage_in_progress:
         counter += 1
     else:
-        if len(current_legal_operations) != 0:
-            action = np.random.choice(current_legal_operations)
+
+        if env.use_noop:
+            if len(current_legal_operations) != 0:
+                action = np.random.choice(current_legal_operations)
+            else:
+                action = 510
         else:
-            action = 510
+            action = 0
         action = search_options_with_available_machines(
             env,
             action,

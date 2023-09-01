@@ -98,29 +98,21 @@ def generate_individual_plots_from_files(file_paths, column_name, title, is_eval
 
     if is_evaluation:
         values_eval = make_homogeneous(values_eval)
-        mean_eval = np.mean(values_eval, axis=0)
-        std_eval = np.std(values_eval, axis=0)
+        mean_eval = np.mean(values_eval, axis=1)
+        std_eval = np.std(values_eval, axis=1)
+        episodes = list(range(1, len(values_eval[0]) + 1))
+        mean_eval = np.ones(len(values_eval[0]))*mean_eval
+        std_eval = np.ones(len(values_eval[0]))*std_eval
 
-        if column_name == "total_reward" or column_name == "sim_duration":
-            print(f"Experiment: {experiment_name}, Variable:{column_name}")
-            print(f" "
-                  f"{np.round(np.mean(values_eval[0][-100:]),2)},"
-                  f"{np.round(np.mean(values_eval[1][-100:]),2)},"
-                  f"{np.round(np.mean(values_eval[2][-100:]),2)},"
-                  f"{np.round(np.mean(values_eval[3][-100:]),2)},"
-                  f"{np.round(np.mean(values_eval[4][-100:]),2)},"
-                  f"{np.round(np.mean(values_eval[5][-100:]),2)},"
-                  f"{np.round(np.mean(mean_eval[-100:]),2)}")
-        episodes = list(range(1, len(mean_eval) + 1))
         ax.plot(episodes, mean_eval, label="Mean $(μ)$", color="black", linestyle="dashed")
         ax.fill_between(episodes, mean_eval - std_eval, mean_eval + std_eval, color='gray', alpha=0.2, label ="STD $(σ)$")
     else:
         values_train = make_homogeneous(values_train)
-        mean_train = np.mean(values_train, axis=0)
-        std_train = np.std(values_train, axis=0)
-
-
-        episodes = list(range(1, len(mean_train) + 1))
+        mean_train = np.mean(values_train, axis=1)
+        std_train = np.std(values_train, axis=1)
+        episodes = list(range(1, len(values_train[0]) + 1))
+        mean_train = np.ones(len(values_train[0])) * mean_train
+        std_train = np.ones(len(values_train[0])) * std_train
         ax.plot(episodes, mean_train, label="Mean $(μ)$", color="black", linestyle="dashed")
         ax.fill_between(episodes, mean_train - std_train, mean_train + std_train, color='gray', alpha=0.2, label = "STD $(σ)$")
 
@@ -260,14 +252,11 @@ def process_directory(directory_path, loc_evaluation_files, loc_training_files, 
 
 # List of columns to generate plots for
 columns_to_plot = ['sim_duration', 'total_reward',"oc_costs","weighted_lateness"]
-directories = ["C:/Users/INOSIM/OneDrive - INOSIM Consulting GmbH/Desktop/all_30_new/ID41_ppo_discrete_new_makespan_200k",
-               "C:/Users/INOSIM/OneDrive - INOSIM Consulting GmbH/Desktop/all_30_new/ID42_ppo_discrete_new_occ_200k",
-               "C:/Users/INOSIM/OneDrive - INOSIM Consulting GmbH/Desktop/all_30_new/ID43_ppo_discrete_new_wl_200k",
-               "C:/Users/INOSIM/OneDrive - INOSIM Consulting GmbH/Desktop/all_30_new/ID44_ppo_discrete_new_length_200k",
-               "C:/Users/INOSIM/OneDrive - INOSIM Consulting GmbH/Desktop/all_30_new/ID45_ppo_discrete_new_tassel_200k"]
+directories = ["C:/Users/INOSIM/OneDrive - INOSIM Consulting GmbH/Desktop/final tests/10e6-PPO-Makespan",
+               "C:/Users/INOSIM/OneDrive - INOSIM Consulting GmbH/Desktop/final tests/10e6-PPO-OCC"]
 
 for i, base_source_directory in enumerate(directories):
     loc_evaluation_files = []
     loc_training_files = []
-    experiment_name = f"ID{41+i}"
+    experiment_name = f"ID{46+i}"
     process_directory(base_source_directory, loc_evaluation_files, loc_training_files,columns_to_plot)
