@@ -168,6 +168,7 @@ def generate_individual_plots_from_files(file_paths, column_name, title, is_eval
     figure = plt.gcf()
     figure.set_size_inches(11, 5)
     plt.savefig(os.path.join(output, f'{plot_type}_{format_column(column_name)}_Plot.png'), dpi=400)
+    plt.savefig(os.path.join(output, f'{plot_type}_{format_column(column_name)}_Plot.svg'), dpi=400,transparent=True, format="svg")
     plt.close()
 
 def generate_plots_vs_custom(idx, csv_path, column_x, column_y, is_evaluation=False):
@@ -182,11 +183,11 @@ def generate_plots_vs_custom(idx, csv_path, column_x, column_y, is_evaluation=Fa
         if column_x == "total_reward":
             df[column_x] = -df[column_x]
 
-        p = calculate_trendline(df[column_x],df[column_y])
         plt.figure()
         figure = plt.gcf()
         figure.set_size_inches(11, 5)
         plt.scatter(df[column_x],df[column_y], label=format_column(column_y), s=10, alpha=0.7)
+        p = calculate_trendline(df[column_x],df[column_y])
         plt.plot(df[column_x], p(df[column_x]), color="red")
 
         plt.xlabel(format_column(column_x))
@@ -200,6 +201,8 @@ def generate_plots_vs_custom(idx, csv_path, column_x, column_y, is_evaluation=Fa
             column_y = "episode_length"
 
         plt.savefig(os.path.join(output, f'{idx+1}_{plot_type}_{column_x}_vs_{column_y}_plot.png'),dpi=400)
+        plt.savefig(os.path.join(output, f'{idx + 1}_{plot_type}_{column_x}_vs_{column_y}_plot.svg'), dpi=400,transparent=True, format="svg")
+
         print("Plot!")
         plt.close()
 

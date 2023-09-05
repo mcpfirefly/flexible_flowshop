@@ -185,6 +185,8 @@ def generate_subplots_for_custom_plots(file_paths, column_x, column_y, is_evalua
     #figure = plt.gcf()
     #figure.set_size_inches(11, 6)
     plt.savefig(os.path.join(base_source_directory, f'{experiment_name}_{plot_type}_{format_column(column_x).replace(" ","_")}_vs_{format_column(column_y).replace(" ","_")}.png'), dpi=400)
+    plt.savefig(os.path.join(base_source_directory, f'{experiment_name}_{plot_type}_{format_column(column_x).replace(" ","_")}_vs_{format_column(column_y).replace(" ","_")}.svg'), dpi=400, transparent=True)
+
     plt.close()
 
 # Define a function to generate subplots for a given set of file paths, columns, and plot title
@@ -223,6 +225,8 @@ def generate_subplots(file_paths, columns, plot_title, is_evaluation):
 
     plt.savefig(os.path.join(base_source_directory, (f'{experiment_name}_ {plot_type}_Performance_Overview.png')),
                 dpi=400, bbox_inches='tight')
+    plt.savefig(os.path.join(base_source_directory, (f'{experiment_name}_ {plot_type}_Performance_Overview.svg')),
+                dpi=400, bbox_inches='tight',transparent=True, format="svg")
     plt.close()
 
 
