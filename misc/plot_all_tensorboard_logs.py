@@ -28,7 +28,7 @@ def calculate_trendline(x,y):
 def generate_and_save_plots(event_file, log_path, extracted_string):
     agent = "PPO Agent"
 
-    if "30" in extracted_string:
+    if "30" in extracted_string or "27" in extracted_string or "28" in extracted_string:
         agent = "SAC Agent"
 
     # Load TensorBoard log file
@@ -43,15 +43,18 @@ def generate_and_save_plots(event_file, log_path, extracted_string):
 
     # Smoothing factor
     smoothing_factor = 0.8
-    base_output_directory = log_path + "/logs_plots"
+    base = "C:/Users/INOSIM/OneDrive - INOSIM Consulting GmbH/General/Thesis Overviews - MCPF/03_Others/results"
+    base_output_directory = base + "/logs_plots"
+    base_output_directory2 = base + "/logs_plots_svg"
     # Create the base output directory if it doesn't exist
     os.makedirs(base_output_directory, exist_ok=True)
+    os.makedirs(base_output_directory2, exist_ok=True)
     # Create separate plots for each key in the dictionary
     steps = event.step
 
     for key, value in store_variables.items():
         if ("eval" in key) and ("total_waiting" not in key) and ("mean" not in key) and ("times" not in key):
-            filename_safe_key = key.replace('/', '-')
+            filename_safe_key = key.split('/')[-1]
             # Generate the modified label for plotting
             modified_label = key.split('/')[-1].title()
             # Remove underscores and replace them with spaces
@@ -78,8 +81,7 @@ def generate_and_save_plots(event_file, log_path, extracted_string):
 
             #################
             # Plot the original data points in a lighter color
-            if "29" in extracted_string:
-                agent= "PPO Agent"
+
             plt.scatter(x_values, y_values, alpha=0.6, label=f'{agent}')
 
             moving_avg_mean, moving_avg_std = moving_average(y_values,moving_average_period)
@@ -101,10 +103,10 @@ def generate_and_save_plots(event_file, log_path, extracted_string):
             plt.legend()
 
             # Save the plot to the specified location
-            plot_filename = f'{extracted_string}_{filename_safe_key}_plot.png'  # You can use any desired file format (e.g., .svg, .jpg, etc.)
-            plot_filename2 = f'{extracted_string}_{filename_safe_key}_plot.svg'
+            plot_filename = f'{extracted_string}_{filename_safe_key}.png'  # You can use any desired file format (e.g., .svg, .jpg, etc.)
+            plot_filename2 = f'{extracted_string}_{filename_safe_key}.svg'
             save_path = os.path.join(base_output_directory, plot_filename)
-            save_path2 = os.path.join(base_output_directory, plot_filename2)
+            save_path2 = os.path.join(base_output_directory2, plot_filename2)
 
             figure = plt.gcf()
             figure.set_size_inches(11, 5)
@@ -152,8 +154,7 @@ def generate_and_save_plots(event_file, log_path, extracted_string):
 
             # Create a new figure
             plt.figure()
-            if "29" in extracted_string:
-                agent= "PPO Agent"
+
             # Plot the original data points in a lighter color
             plt.scatter(x_values, y_values, alpha=0.6, label=f'{agent}')
             p = calculate_trendline(x_values, y_values)
@@ -170,11 +171,11 @@ def generate_and_save_plots(event_file, log_path, extracted_string):
             plt.legend()
 
             # Save the plot to the specified location
-            plot_filename = f'{extracted_string}_{filename_safe_key}_plot.png'  # You can use any desired file format (e.g., .svg, .jpg, etc.)
-            plot_filename2 = f'{extracted_string}_{filename_safe_key}_plot.svg'
+            plot_filename = f'{extracted_string}_{filename_safe_key}.png'  # You can use any desired file format (e.g., .svg, .jpg, etc.)
+            plot_filename2 = f'{extracted_string}_{filename_safe_key}.svg'
 
             save_path = os.path.join(base_output_directory, plot_filename)
-            save_path2 = os.path.join(base_output_directory, plot_filename2)
+            save_path2 = os.path.join(base_output_directory2, plot_filename2)
             figure = plt.gcf()
             figure.set_size_inches(11, 5)
             plt.savefig(save_path, dpi=400)
@@ -203,10 +204,10 @@ def generate_and_save_plots(event_file, log_path, extracted_string):
             plt.legend()
 
             # Save the plot to the specified location
-            plot_filename = f'{extracted_string}_ return_vs_{filename_safe_key}_plot.png'  # You can use any desired file format (e.g., .svg, .jpg, etc.)
-            plot_filename2 = f'{extracted_string}_ return_vs_{filename_safe_key}_plot.svg'
+            plot_filename = f'{extracted_string}_ return_vs_{filename_safe_key}.png'  # You can use any desired file format (e.g., .svg, .jpg, etc.)
+            plot_filename2 = f'{extracted_string}_ return_vs_{filename_safe_key}.svg'
             save_path = os.path.join(base_output_directory, plot_filename)
-            save_path2 = os.path.join(base_output_directory, plot_filename2)
+            save_path2 = os.path.join(base_output_directory2, plot_filename2)
 
             figure = plt.gcf()
             figure.set_size_inches(11, 5)
@@ -257,10 +258,10 @@ def generate_and_save_plots(event_file, log_path, extracted_string):
     plt.legend()
 
     # Save the plot to the specified location
-    plot_filename = f'{extracted_string}_{filename_safe_key}_plot.png'  # You can use any desired file format (e.g., .svg, .jpg, etc.)
-    plot_filename2 = f'{extracted_string}_{filename_safe_key}_plot.svg'
+    plot_filename = f'{extracted_string}_{filename_safe_key}.png'  # You can use any desired file format (e.g., .svg, .jpg, etc.)
+    plot_filename2 = f'{extracted_string}_{filename_safe_key}.svg'
     save_path = os.path.join(base_output_directory, plot_filename)
-    save_path2 = os.path.join(base_output_directory, plot_filename2)
+    save_path2 = os.path.join(base_output_directory2, plot_filename2)
 
     figure = plt.gcf()
     figure.set_size_inches(11, 5)
