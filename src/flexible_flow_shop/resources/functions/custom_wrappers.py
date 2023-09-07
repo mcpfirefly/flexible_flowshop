@@ -235,6 +235,7 @@ class ActionWrapper_Continuous(gym.ActionWrapper):
             action = (action + self.action_space.high) / (
                 self.action_space.high - self.action_space.low
             )  # transform normalized action vector [-1,1] to [0,1]
+
         product = self.env.env._get_product_number(action[0])
         machine = self.env.env._get_machine_number(action[1])
         action = product * machine  # map tuple (product,machine) to operation

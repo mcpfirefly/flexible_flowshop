@@ -22,6 +22,7 @@ class StudyCase:
 
     def _initialize_data(self, cfg):
         self.seed = cfg.seed
+        self.use_optimized_hyperparameters = cfg.use_optimized_hyperparameters
         self.N_TIMESTEPS = cfg.N_TIMESTEPS
         self.masking = cfg.masking
         self.reward = cfg.reward

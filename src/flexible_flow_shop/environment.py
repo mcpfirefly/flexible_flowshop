@@ -279,7 +279,7 @@ class flexible_flow_shop(gym.Env):
         if scheduling_condition:
             order = self.orders[action]
             if self.study.action_space == "continuous" or (self.study.masking == False and self.study.action_space == "discrete"):
-                self.reward = 1
+                self.reward = 2
 
             if self.study.buffer_usage != "no_buffers" and order.stage > 0:
                 buffer_stage = order.stage - 1
@@ -694,8 +694,6 @@ class flexible_flow_shop(gym.Env):
         """Function that sends an action to the scheduling function described above
         and receives the self.observation, self.reward, terminated and truncated signals.
         """
-        #print("Legal actions: {}".format(np.array(np.argwhere(self.legal_operations),dtype=int).flatten().tolist()))
-        #print("Action selected from legal actions: {}".format(action))
         if not self.legal_operations[action] and self.legal_operations.any():
             self.episode_length += 1
 
@@ -711,15 +709,14 @@ class flexible_flow_shop(gym.Env):
                 print("OCC value: {}".format(self.oc_costs))
                 print("WL value: {}".format(self.weighted_total_lateness))
                 print("Reward: {}".format(self.total_reward))
-                if (
-                    self.sim_duration < 30
-                    or self.oc_costs < 70
-                    or self.weighted_total_lateness < 250
-                ):
-                    self.render()
+                #if (
+                #    self.sim_duration < 30
+                #    or self.oc_costs < 70
+                #    or self.weighted_total_lateness < 250
+                #):
                 self.done = True
 
-            if self.sim_duration >= 60 or self.episode_length >= 2500:
+            if self.sim_duration >= 100 or self.episode_length >= 2000:
                 print("------------------------------------------------------")
                 print(
                     "Episode truncated! Completion score: {}%".format(
@@ -727,7 +724,7 @@ class flexible_flow_shop(gym.Env):
                     )
                 )
                 print("Episode length: {}".format(self.episode_length))
-                self.render()
+                #self.render()
                 print("Makespan value: {}".format(self.sim_duration))
                 print("OCC value: {}".format(self.oc_costs))
                 print("WL value: {}".format(self.weighted_total_lateness))
@@ -745,7 +742,7 @@ class flexible_flow_shop(gym.Env):
                 "total_reward": self.total_reward,
             }
 
-            self.reward = -10
+            self.reward = -1
 
             return self._get_observation(), self.reward, self.done, info
 
@@ -758,9 +755,6 @@ class flexible_flow_shop(gym.Env):
             self.env.run(until=self.env.now + self.timestep)
             current_variables(self)
 
-
-            if not(self.legal_operations.any()):
-                a=1
             self.makespan_reward = -(
                 np.around(self.sim_duration_current, 4)
                 - np.around(self.sim_duration_past, 4)
@@ -810,23 +804,24 @@ class flexible_flow_shop(gym.Env):
                 print("OCC value: {}".format(self.oc_costs))
                 print("WL value: {}".format(self.weighted_total_lateness))
                 print("Reward: {}".format(self.total_reward))
-                if self.study.solution_hints == "kopanos":
-                    if self.sim_duration < 28 or self.oc_costs < 65 or self.weighted_total_lateness < 200:
-                        self.render()
-                else:
-                    if self.sim_duration < 30 or self.oc_costs < 70 or self.weighted_total_lateness < 250:
-                        self.render()
+
+#                if self.study.solution_hints == "kopanos":
+#                    if self.sim_duration < 28 or self.oc_costs < 65 or self.weighted_total_lateness < 200:
+#                        self.render()
+#                else:
+#                    if self.sim_duration < 30 or self.oc_costs < 70 or self.weighted_total_lateness < 250:
+#                        self.render()
                 self.done = True
 
-            if self.sim_duration >= 100 or self.episode_length > 2500:
-                print("------------------------------------------------------")
+            if self.sim_duration >= 100 or self.episode_length >= 2000:
+                #print("------------------------------------------------------")
                 print(
                     "Episode truncated! Completion score: {}%".format(
                         self.completion_score * 100
                     )
                 )
                 print("Episode length: {}".format(self.episode_length))
-                self.render()
+                #self.render()
                 print("Makespan value: {}".format(self.sim_duration))
                 print("OCC value: {}".format(self.oc_costs))
                 print("WL value: {}".format(self.weighted_total_lateness))

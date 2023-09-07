@@ -471,6 +471,7 @@ class PPO_Manual_Parameters:
 
     def initialize_global_variables(self, study):
         self.N_TIMESTEPS = study.N_TIMESTEPS  # for every trial
+        self.use_optimized_hyperparameters = study.use_optimized_hyperparameters
         self.ORDERS = study.ORDERS
         self.CHANGEOVER = study.CHANGEOVER
         self.recreate_solution = study.recreate_solution
@@ -591,23 +592,22 @@ class PPO_Manual_Parameters:
         }
 
     def PPO_Manual_Parameters_run(self):
-        policy_kwargs = {"net_arch": [64, 64, 64, 64]}
-
         DEFAULT_HYPERPARAMS = {
             "policy": "MlpPolicy",
             "env": self.train_env,
             "verbose": 0,
             "seed": self.seed,
             "tensorboard_log": self.log_path,
-            "policy_kwargs": policy_kwargs,
+            "policy_kwargs": {"net_arch": [64, 64, 64, 64]}
         }
         kwargs = DEFAULT_HYPERPARAMS.copy()
-        if self.action_space == "discrete_probs" and self.solution_hints == "kopanos":
-            kwargs.update(self.ppo_hyperparams_discrete_probs())
-        elif self.action_space == "continuous":
-            kwargs.update(self.ppo_hyperparams_continuous())
-        elif self.action_space == "discrete":
-            kwargs.update(self.ppo_hyperparams_discrete())
+        if self.use_optimized_hyperparameters:
+            if self.action_space == "discrete_probs" and self.solution_hints == "kopanos":
+                kwargs.update(self.ppo_hyperparams_discrete_probs())
+            elif self.action_space == "continuous":
+                kwargs.update(self.ppo_hyperparams_continuous())
+            elif self.action_space == "discrete":
+                kwargs.update(self.ppo_hyperparams_discrete())
 
 
         if self.masking and self.action_space == "discrete":
@@ -620,6 +620,17 @@ class PPO_Manual_Parameters:
                 deterministic=True,
                 verbose=1,
             )
+        elif self.action_space == "continuous":
+            model = PPO(**kwargs)
+            eval_callback = EvalCallback(
+                self.eval_env,
+                n_eval_episodes=self.N_EVAL_EPISODES,
+                eval_freq=self.EVAL_FREQ,
+                best_model_save_path=self.best_model_save_path,
+                verbose=1,
+                deterministic=False,
+            )
+
         else:
             model = PPO(**kwargs)
             eval_callback = EvalCallback(
@@ -989,6 +1000,7 @@ class SAC_Discrete:
         self.obs_size = study.obs_size
         self.action_space = study.action_space
         self.buffer_usage = study.buffer_usage
+        self.use_optimized_hyperparameters = study.use_optimized_hyperparameters
         self.experiment_date = study.experiment_date
         self.experiment_time = study.experiment_time
         self.config = study.config
@@ -999,12 +1011,13 @@ class SAC_Discrete:
 
     def SAC_Discrete_run(self):
         args = sac_args_default(self).copy()
-        if self.reward == "MAKESPAN":
-            args.update(sac_args_optuna_makespan(self))
-        elif self.reward == "OCC":
-            args.update(sac_args_optuna_occ(self))
-        elif self.reward == "TASSEL":
-            args.update(sac_args_optuna_tassel(self))
+        if self.use_optimized_hyperparameters:
+            if self.reward == "MAKESPAN":
+                args.update(sac_args_optuna_makespan(self))
+            elif self.reward == "OCC":
+                args.update(sac_args_optuna_occ(self))
+            elif self.reward == "TASSEL":
+                args.update(sac_args_optuna_tassel(self))
         # set global seed
         set_global_seed(self.seed)
 

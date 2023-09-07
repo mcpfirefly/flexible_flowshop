@@ -248,7 +248,7 @@ class SACAgent(BaseAgent):
         if self.discrete_action_space:
             action = actions_distributions.sample()
 
-        while not legal_actions[action]:
+        while not legal_actions[action] and legal_actions.any():
             action = actions_distributions.sample()
 
         return {
