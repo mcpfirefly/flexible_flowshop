@@ -36,6 +36,7 @@ class StudyCase:
         self.heuristics_policy_rl = cfg.heuristics_policy_rl
         self.recreate_solution = cfg.recreate_solution
         self.test = cfg.test
+        self.heuristics_rollouts = cfg.heuristics_rollouts
         self.workbook = cfg.workbook
         self.optuna_trials = cfg.optuna_trials
         self.use_noop = cfg.use_noop

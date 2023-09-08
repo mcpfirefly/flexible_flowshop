@@ -54,6 +54,7 @@ def make_environment(study, suffix):
         buffer_usage=study.buffer_usage,
         log_path=(study.log_path + suffix),
         heuristics_policy_rl=study.heuristics_policy_rl,
+        heuristics_rollouts=study.heuristics_rollouts,
     )
 
 def Plot_From_TensorboardLogs(self):
@@ -630,7 +631,6 @@ class PPO_Manual_Parameters:
                 verbose=1,
                 deterministic=False,
             )
-
         else:
             model = PPO(**kwargs)
             eval_callback = EvalCallback(

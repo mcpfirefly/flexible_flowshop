@@ -191,6 +191,17 @@ class RewardWrapper_Completion(gym.RewardWrapper):
         return modified_reward
 
 
+class RewardWrapper_HeuristicsRollouts(gym.RewardWrapper):
+    def __init__(self, env):
+        super(RewardWrapper_HeuristicsRollouts, self).__init__(env)
+
+    def reward(self, reward):
+        # Modify the reward calculation here
+        return reward
+
+
+
+
 class ActionWrapper_Discrete(gym.ActionWrapper):
     def __init__(self, env):
         super().__init__(env)

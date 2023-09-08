@@ -1,3 +1,5 @@
+import copy
+
 import gym, itertools
 import numpy as np
 import simpy
@@ -50,9 +52,11 @@ from gym.spaces import Discrete
 
 
 class flexible_flow_shop(gym.Env):
-    def __init__(self, study):
+    def __init__(self, study, is_copy=False, number_of_rollouts = 0):
         super().__init__()
         self.study = study
+        self.number_of_rollouts = number_of_rollouts
+        self.is_copy = is_copy
         self.observation_space = Discrete(1)
         self.action_space = Discrete(1)
         self.reset()
@@ -194,6 +198,7 @@ class flexible_flow_shop(gym.Env):
         self.end_time_operations = -np.ones(self.study.N_OPERATIONS, dtype=float)
         if self.study.generate_heuristic_schedules == None or self.study.heuristics_policy_rl == None:
             self.MAX_QUEUE_SIZE = 1
+        self.started_rollouts = False
         return self._get_observation()
 
     def valid_action_mask(self):
@@ -257,7 +262,6 @@ class flexible_flow_shop(gym.Env):
         is instructed to allocate into. Once the order finishes its processing in
         a stage, the variable order.stage is increased by += 1 and order it's
         inserted into the orders list on the first position."""
-
         self.sim_duration = np.round(self.sim_duration, 4)
         self.oc_costs = np.round(self.oc_costs, 4)
         self.weighted_total_lateness = np.round(self.weighted_total_lateness, 4)
@@ -694,7 +698,8 @@ class flexible_flow_shop(gym.Env):
         """Function that sends an action to the scheduling function described above
         and receives the self.observation, self.reward, terminated and truncated signals.
         """
-        if not self.legal_operations[action] and self.legal_operations.any():
+
+        if not self.legal_operations[action] and self.legal_operations.any() and not self.is_copy:
             self.episode_length += 1
 
             if self.finished_orders.all() or np.round(self.completion_score, 5) == 1.0:
@@ -741,10 +746,8 @@ class flexible_flow_shop(gym.Env):
                 "schedule": self.schedule,
                 "total_reward": self.total_reward,
             }
-
-            self.reward = -1
-
-            return self._get_observation(), self.reward, self.done, info
+            print("AGENT TOOK ILLEGAL ACTION!")
+            self.reward = -1000
 
         else:
             self.timestep = get_timestep(self, action)
@@ -754,7 +757,6 @@ class flexible_flow_shop(gym.Env):
             self.env.process(self._scheduling(self.env, action))
             self.env.run(until=self.env.now + self.timestep)
             current_variables(self)
-
             self.makespan_reward = -(
                 np.around(self.sim_duration_current, 4)
                 - np.around(self.sim_duration_past, 4)
@@ -769,7 +771,9 @@ class flexible_flow_shop(gym.Env):
                 np.around(self.episode_length_current, 4)
                 - np.around(self.episode_length_past, 4)
             )
-            if self.study.reward == "MAKESPAN":
+            if self.study.heuristics_rollouts:
+                self.total_reward += self.reward
+            elif self.study.reward == "MAKESPAN":
                 self.total_reward += self.makespan_reward + self.reward
             elif self.study.reward == "OCC":
                 self.total_reward += self.occ_reward + self.reward
@@ -829,7 +833,74 @@ class flexible_flow_shop(gym.Env):
                 print("Reward: {}".format(self.total_reward))
                 self.done = True
 
-            return self._get_observation(), self.reward, self.done, info
+        if not self.is_copy:
+            env_copy = flexible_flow_shop(self.study,is_copy=True)
+            env_copy.reset()
+            history_idx = 0
+            old_action = 100000
+            while old_action != -1:
+                old_action = self.scheduled_operations[history_idx]
+                if old_action == -1:
+                    break
+                history_idx += 1
+                env_copy.step(old_action)
+
+        if self.study.heuristics_rollouts and not self.started_rollouts and not self.is_copy:
+            env_copy.started_rollouts = True
+            env_copy.done = False
+            counter = 0
+
+            while not env_copy.done:
+
+                if env_copy.legal_operations.any():  # IF ANY LEGAL OPERATION EXISTS
+                    current_legal_operations = np.where(env_copy.legal_operations)[0]
+
+                    action, counter = get_action_heuristics(
+                        env_copy,
+                        current_legal_operations,
+                        counter,
+                        env_copy.study.generate_heuristic_schedules,
+                        env_copy.study.heuristics_policy_rl,
+                        env_copy.study.CHANGEOVER,
+                    )
+
+                    env_copy.timestep = get_timestep(env_copy, action)
+                    env_copy.env.process(env_copy._scheduling(env_copy.env, action))
+                    env_copy.env.run(until=env_copy.env.now + env_copy.timestep)
+
+                else:  # SEND NOOP ACTION
+                    if env_copy.use_noop:
+                        action = len(env_copy.legal_operations)
+                        env_copy.timestep = get_timestep(env_copy, action)
+                        env_copy.env.process(env_copy._scheduling(env_copy.env, action))
+                        env_copy.env.run(until=env_copy.env.now + env_copy.timestep)
+                    else:
+                        action = np.random.randint(len(env_copy.legal_operations)-1)
+                        env_copy.timestep = get_timestep(env_copy, action)
+                        env_copy.env.process(env_copy._scheduling(env_copy.env, action))
+                        env_copy.env.run(until=env_copy.env.now + env_copy.timestep)
+
+                if env_copy.finished_orders.all() or np.round(env_copy.completion_score, 5) == 1.0:
+                    env_copy.done = True
+
+
+            if (
+                    env_copy.study.generate_heuristic_schedules == "FIFO"
+                    or env_copy.study.generate_heuristic_schedules == "SPT"
+            ):
+                self.reward = -env_copy.sim_duration
+
+            elif env_copy.study.generate_heuristic_schedules == "EDD":
+                self.reward  = -env_copy.weighted_total_lateness
+
+            elif env_copy.study.generate_heuristic_schedules == "SCT":
+                self.reward  = -env_copy.oc_costs
+
+            self.number_of_rollouts += 1
+            #print(f"{env_copy.study.generate_heuristic_schedules} Reward: {np.round(self.reward,4)} / Rollout: {self.number_of_rollouts} / Real Time: {self.sim_duration} / Real Completion: {self.completion_score*100}%")
+            env_copy.started_rollouts = False
+
+        return self._get_observation(), self.reward, self.done, info
 
     def _get_observation(self):
         self.legal_machines_per_stage = [

@@ -24,6 +24,7 @@ def MakeEnvironment(
     buffer_usage,
     log_path,
     heuristics_policy_rl,
+    heuristics_rollouts,
 ):
     """OBSERVATION SIZE"""
     if obs_size == "big":
@@ -79,6 +80,10 @@ def MakeEnvironment(
         env = RewardWrapper_Completion(env)
     elif reward == "TASSEL":
         env = RewardWrapper_TASSEL(env)
+    elif heuristics_rollouts:
+        env = RewardWrapper_HeuristicsRollouts(env)
+        #The reward variable will indicate inside the copy environment which is the optimization variable
+        # to pass as reward once a complete episode with heuristics is finished
     else:
         print(
             "No reward wrapper was selected! Default will be used instead: PENALIZE ILLEGAL ACTIONS, REWARD LEGAL ACTIONS"

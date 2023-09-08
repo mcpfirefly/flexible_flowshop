@@ -17,14 +17,15 @@ params:
     buffer_usage: no_buffers
     time_in_buffer_custom: 1
     workbook: kopanos
-    obs_size: big_old
-    action_space: continuous
+    obs_size: new
+    action_space: discrete
     solution_hints: None
     products_number: 30
-    generate_heuristic_schedules: None
     heuristics_policy_rl: None
     recreate_solution: None
     test: ppo_manual
     optuna_trials: 5
-    use_noop: True
+    use_noop: False
     use_optimized_hyperparameters: False
+    generate_heuristic_schedules: SPT
+    heuristics_rollouts: True
