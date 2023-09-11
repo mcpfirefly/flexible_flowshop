@@ -833,7 +833,7 @@ class flexible_flow_shop(gym.Env):
                 print("Reward: {}".format(self.total_reward))
                 self.done = True
 
-        if not self.is_copy:
+        if not self.is_copy and self.study.heuristics_rollouts:
             env_copy = flexible_flow_shop(self.study,is_copy=True)
             env_copy.reset()
             history_idx = 0
@@ -845,7 +845,7 @@ class flexible_flow_shop(gym.Env):
                 history_idx += 1
                 env_copy.step(old_action)
 
-        if self.study.heuristics_rollouts and not self.started_rollouts and not self.is_copy:
+        if self.study.heuristics_rollouts and not self.started_rollouts and not self.is_copy and self.study.heuristics_rollouts:
             env_copy.started_rollouts = True
             env_copy.done = False
             counter = 0

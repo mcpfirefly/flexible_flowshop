@@ -506,6 +506,35 @@ class PPO_Manual_Parameters:
         return func
 
     def ppo_hyperparams_discrete_probs(self) -> Dict[str, Any]:
+
+        gamma = 1-0.0017826497151386949
+        max_grad_norm = 2.2764013597445354
+        gae_lambda = 1-0.0010006061777325433
+        n_steps = 2**5
+        learning_rate = 2.3095753537631254e-05
+        ent_coef = 4.4296576570762365e-08
+        lr_schedule = "linear"
+        ortho_init = True
+        net_arch = [256, 128, 256]
+        activation_fn = nn.ReLU
+
+        if lr_schedule == "linear":
+            learning_rate = self.linear_schedule(learning_rate)
+
+        return {
+            "n_steps": n_steps,
+            "gamma": gamma,
+            "gae_lambda": gae_lambda,
+            "learning_rate": learning_rate,
+            "ent_coef": ent_coef,
+            "max_grad_norm": max_grad_norm,
+            "policy_kwargs": {
+                "net_arch": net_arch,
+                "activation_fn": activation_fn,
+                "ortho_init": ortho_init,
+            },
+        }
+    def ppo_hyperparams_discrete_probs_kopanos(self) -> Dict[str, Any]:
         gamma = 0.9574554332294194
         max_grad_norm = 0.3178814931041116
         gae_lambda = 0.8170314419786968
@@ -604,9 +633,9 @@ class PPO_Manual_Parameters:
         kwargs = DEFAULT_HYPERPARAMS.copy()
         if self.use_optimized_hyperparameters:
             if self.action_space == "discrete_probs" and self.solution_hints == "kopanos":
+                kwargs.update(self.ppo_hyperparams_discrete_probs_kopanos())
+            elif self.action_space == "discrete_probs":
                 kwargs.update(self.ppo_hyperparams_discrete_probs())
-            elif self.action_space == "continuous":
-                kwargs.update(self.ppo_hyperparams_continuous())
             elif self.action_space == "discrete":
                 kwargs.update(self.ppo_hyperparams_discrete())
 
