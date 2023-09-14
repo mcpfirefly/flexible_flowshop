@@ -8,8 +8,8 @@ import pickle, os
 import tensorflow as tf
 import numpy as np
 # Function to generate and save plots
-smoothing = False
-moving_average = True
+smoothing = True
+moving_average = False
 moving_average_period = 12
 
 def moving_average(vector, window):
@@ -42,7 +42,7 @@ def generate_and_save_plots(event_file, log_path, extracted_string):
 
 
     # Smoothing factor
-    smoothing_factor = 0.8
+    smoothing_factor = 0.999
     base = "C:/Users/INOSIM/OneDrive - INOSIM Consulting GmbH/General/Thesis Overviews - MCPF/03_Others/results"
     base_output_directory = base + "/logs_plots"
     base_output_directory2 = base + "/logs_plots_svg"
@@ -61,9 +61,12 @@ def generate_and_save_plots(event_file, log_path, extracted_string):
             modified_label = modified_label.replace('_', ' ')
 
             if key == "advanced_eval/oc_costs":
-                modified_label = "Operating & Changeover Costs"
+                modified_label = "OCC [$]"
             elif key == "advanced_eval/weighted_lateness":
-                modified_label = "Total Weighted Lateness"
+                modified_label = "Total WL [h]"
+            elif key == "advanced_eval/makespan":
+                modified_label = "Makespan [h]"
+
 
             num_steps = len(value)
             step_size = steps / (num_steps - 1)
@@ -82,7 +85,7 @@ def generate_and_save_plots(event_file, log_path, extracted_string):
             #################
             # Plot the original data points in a lighter color
 
-            plt.scatter(x_values, y_values, alpha=0.6, label=f'{agent}')
+            #plt.scatter(x_values, y_values, alpha=0.6, label=f'ID33')
 
             moving_avg_mean, moving_avg_std = moving_average(y_values,moving_average_period)
             a=False
@@ -91,19 +94,19 @@ def generate_and_save_plots(event_file, log_path, extracted_string):
                 moving_avg_std = moving_avg_std[moving_average_period - 1:]
                 x_values = x_values[moving_average_period - 1:]
 
-            plt.plot(x_values, moving_avg_mean, color="red", label=f'Moving Average ({moving_average_period})')
+            plt.plot(x_values, moving_avg_mean, color="blue", label=f'ID33')
 
-            plt.fill_between(x_values, moving_avg_mean - moving_avg_std, moving_avg_mean + moving_avg_std, color='gray', alpha=0.2, label = (r'STD ($\sigma$)'))
+            #plt.fill_between(x_values, moving_avg_mean - moving_avg_std, moving_avg_mean + moving_avg_std, color='gray', alpha=0.2, label = (r'STD ($\sigma$)'))
             # Set title and labels
             #plt.title(f'{exp_id}')
-            plt.xlabel('Timesteps')
+            plt.xlabel('Learning Steps')
             plt.ylabel(f'{modified_label}')
 
             # Add legend
             plt.legend()
 
             # Save the plot to the specified location
-            plot_filename = f'{extracted_string}_{filename_safe_key}.png'  # You can use any desired file format (e.g., .svg, .jpg, etc.)
+            plot_filename = f'{extracted_string}_{filename_safe_key}.png'  # You can use any desiblue file format (e.g., .svg, .jpg, etc.)
             plot_filename2 = f'{extracted_string}_{filename_safe_key}.svg'
             save_path = os.path.join(base_output_directory, plot_filename)
             save_path2 = os.path.join(base_output_directory2, plot_filename2)
@@ -115,7 +118,7 @@ def generate_and_save_plots(event_file, log_path, extracted_string):
             plt.close()
 
             # Save data dictionary as pickle
-            pickle_filename = 'stored_variables.pkl'
+            pickle_filename = 'stoblue_variables.pkl'
             save_pickle = os.path.join(log_path, pickle_filename)
 
             with open(save_pickle, 'wb') as save_pickle:
@@ -131,9 +134,11 @@ def generate_and_save_plots(event_file, log_path, extracted_string):
         modified_label = modified_label.replace('_', ' ')
 
         if key == "advanced_eval/oc_costs":
-            modified_label = "Operating & Changeover Costs"
+            modified_label = "OCC [$]"
         elif key == "advanced_eval/weighted_lateness":
-            modified_label = "Total Weighted Lateness"
+            modified_label = "Total WL [h]"
+        elif key == "advanced_eval/makespan":
+            modified_label = "Makespan [h]"
 
         _, y_values = zip(*store_variables[key])
         if agent == "PPO Agent":
@@ -156,11 +161,11 @@ def generate_and_save_plots(event_file, log_path, extracted_string):
             plt.figure()
 
             # Plot the original data points in a lighter color
-            plt.scatter(x_values, y_values, alpha=0.6, label=f'{agent}')
+            plt.scatter(x_values, y_values, alpha=0.6, label=f'ID33')
             p = calculate_trendline(x_values, y_values)
-            plt.plot(x_values, p(x_values), color="red")
+            plt.plot(x_values, p(x_values), color="blue")
             # Plot the smoothed data
-            plt.plot(x_values, smoothed_y_values, label=f'{agent} (smoothed: {smoothing_factor})')
+            plt.plot(x_values, smoothed_y_values, label=f'ID33 (smoothed: {smoothing_factor})')
 
             # Set title and labels
             #plt.title(f'{exp_id}')
@@ -171,7 +176,7 @@ def generate_and_save_plots(event_file, log_path, extracted_string):
             plt.legend()
 
             # Save the plot to the specified location
-            plot_filename = f'{extracted_string}_{filename_safe_key}.png'  # You can use any desired file format (e.g., .svg, .jpg, etc.)
+            plot_filename = f'{extracted_string}_{filename_safe_key}.png'  # You can use any desiblue file format (e.g., .svg, .jpg, etc.)
             plot_filename2 = f'{extracted_string}_{filename_safe_key}.svg'
 
             save_path = os.path.join(base_output_directory, plot_filename)
@@ -194,7 +199,7 @@ def generate_and_save_plots(event_file, log_path, extracted_string):
             # Plot the original data points in a lighter color
             plt.scatter(x_values, y_values, alpha=0.6, label=agent)
             p = calculate_trendline(x_values, y_values)
-            plt.plot(x_values, p(x_values), color="red")
+            plt.plot(x_values, p(x_values), color="blue")
             # Set title and labels
             #plt.title(f'{exp_id}')
             plt.xlabel('Return')
@@ -204,7 +209,7 @@ def generate_and_save_plots(event_file, log_path, extracted_string):
             plt.legend()
 
             # Save the plot to the specified location
-            plot_filename = f'{extracted_string}_ return_vs_{filename_safe_key}.png'  # You can use any desired file format (e.g., .svg, .jpg, etc.)
+            plot_filename = f'{extracted_string}_ return_vs_{filename_safe_key}.png'  # You can use any desiblue file format (e.g., .svg, .jpg, etc.)
             plot_filename2 = f'{extracted_string}_ return_vs_{filename_safe_key}.svg'
             save_path = os.path.join(base_output_directory, plot_filename)
             save_path2 = os.path.join(base_output_directory2, plot_filename2)
@@ -246,11 +251,11 @@ def generate_and_save_plots(event_file, log_path, extracted_string):
     y_values.pop(idx)
 
     plt.figure()
-    plt.plot(x_values, y_values, label=f'{agent}')
+    plt.plot(x_values, y_values, label=f'ID33')
 
     # Set title and labels
     #plt.title(f'{exp_id}')
-    plt.xlabel('Timesteps')
+    plt.xlabel('Learning Steps')
 
     plt.ylabel(f'{modified_label}')
 
@@ -258,7 +263,7 @@ def generate_and_save_plots(event_file, log_path, extracted_string):
     plt.legend()
 
     # Save the plot to the specified location
-    plot_filename = f'{extracted_string}_{filename_safe_key}.png'  # You can use any desired file format (e.g., .svg, .jpg, etc.)
+    plot_filename = f'{extracted_string}_{filename_safe_key}.png'  # You can use any desiblue file format (e.g., .svg, .jpg, etc.)
     plot_filename2 = f'{extracted_string}_{filename_safe_key}.svg'
     save_path = os.path.join(base_output_directory, plot_filename)
     save_path2 = os.path.join(base_output_directory2, plot_filename2)
@@ -294,5 +299,5 @@ def process_directory_tensorboard(directory_path, exp_id):
 
 
 if __name__ == "__main__":
-    path = "C:/Users/INOSIM/OneDrive - INOSIM Consulting GmbH/General/Thesis Overviews - MCPF/03_Others/results"
+    path = r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\02_RL\Batch_8\ID33"
     process_directory_tensorboard(path, exp_id=0)

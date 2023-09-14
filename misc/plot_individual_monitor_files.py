@@ -7,6 +7,8 @@ import os
 import re
 from scipy import stats
 
+several = True
+plot_best = True
 def get_experiment_id(csv_path):
     pattern = r'\\(ID\d+)'
     # Search for the pattern in the path
@@ -24,12 +26,12 @@ os.makedirs(output, exist_ok=True)
 os.makedirs(output_svg, exist_ok=True)
 plt.style.use(['science','no-latex','grid'])
 # Define your base source directory
-window_size = 20
+window_size = 50
 smoothing = False
 output_directory = "plots"
 
 if smoothing:
-    smoothing_factor = 0.99
+    smoothing_factor = 0.999
     window_size = None
 
 loc_eval_files = []
@@ -72,14 +74,6 @@ def format_column(column):
         return 'Episode Length'
     return column
 
-def make_homogeneous(array):
-    # Find the length of the smallest sublist
-    smallest_length = min(len(sublist) for sublist in array)
-
-    # Truncate all sublists to the length of the smallest sublist
-    new_array = [sublist[:smallest_length] for sublist in array]
-    return new_array
-
 def generate_single_plot(csv_path, column_name, label,idx, is_evaluation):
 
     df = pd.read_csv(csv_path, header=1)
@@ -87,11 +81,44 @@ def generate_single_plot(csv_path, column_name, label,idx, is_evaluation):
     #episodes = list(range(1, len(df) + 1))
     if smoothing:
         df[column_name] = smooth_values(df[column_name])
+        std_eval = np.std(smooth_values(df[column_name]))
     else:
-        df[column_name], std = calculate_moving_average(df[column_name])
-    plt.plot(episodes, df[column_name], label=label)
+        df[column_name], std_eval = calculate_moving_average(df[column_name])
+
+    mean_eval = df[column_name]
+
+    plt.plot(episodes,mean_eval, label=label,color=colors[idx])
+    plt.fill_between(episodes, mean_eval - std_eval, mean_eval + std_eval, color=colors[idx], alpha=0.2)
+
+
+    if column_name == "sim_duration":
+        plt.gca().set_ylim(bottom=25)
+        plt.plot(episodes, [26.56] * len(mean_eval), label=f'Best Solution Kopanos', color="black",
+                 linestyle="dashed", linewidth=1.5)
+    elif column_name == "oc_costs":
+        plt.gca().set_ylim(bottom=60)
+        plt.plot(episodes, [62.91] * len(mean_eval), label=f'Best Solution Kopanos', color="black",
+                 linestyle="dashed", linewidth=1.5)
+    elif column_name == "weighted_lateness":
+        plt.gca().set_ylim(bottom=0)
+        plt.plot(episodes, [19.09] * len(mean_eval), label=f'Best Solution Kopanos', color="black",
+                 linestyle="dashed", linewidth=1.5)
+
+    min = np.min(mean_eval)
+    max = np.max(mean_eval)
+    if plot_best and column_name != "total_reward":
+        plt.plot(episodes, [min] * len(mean_eval), color=colors[idx], linestyle="dashed", linewidth=1.5, alpha=0.7,label=f"Best Solution {agent} ({exp_id})")
+
+    plt.tight_layout()
     plt.xlabel('Episodes')
     plt.ylabel(format_column(column_name))
+    min_val = np.min(df[column_name])
+    if column_name != "total_reward" and min_val > 0:
+        max_lim = np.max(mean_eval) + np.max(std_eval)
+        plt.ylim(top=max_lim + max_lim * 0.25)
+    else:
+        min_lim = np.min(mean_eval) + np.min(std_eval)
+        plt.ylim(bottom = min_lim + min_lim*0.25, top = 10)
     plot_type = 'Evaluation' if is_evaluation else 'Training'
     #plt.suptitle(experiment_name)
     #plt.title(f'Episode vs. {format_column(column_name)} ({plot_type})')
@@ -115,17 +142,21 @@ def process_directory(directory_path, loc_evaluation_files, loc_training_files):
 
 
 # Function to generate and save individual plots from file paths
-def generate_individual_plots_from_files(file_paths, column_name, title, is_evaluation):
-    plt.figure(figsize=(10, 6))
-
+def generate_individual_plots_from_files(agent,file_paths, column_name, title, path, is_evaluation):
     values_eval = [[] for _ in range(len(loc_evaluation_files))]
     values_train = [[] for _ in range(len(loc_evaluation_files))]
-
     for idx, file_path in enumerate(file_paths):
         experiment_name = get_experiment_id(file_path)
-        label = f"{experiment_name} ({idx+1})"
+        if len(file_paths)>1:
+            label = f"{agent} {idx+1} ({experiment_name})"
+        else:
+            label = f"{agent} ({experiment_name})"
+
+        figure = plt.gcf()
+        figure.set_size_inches(6, 3)
 
         column = generate_single_plot(file_path, column_name,label,idx, is_evaluation=is_evaluation)
+
         if is_evaluation:
             generate_plots_vs_custom(idx, file_path, "total_reward", "sim_duration", is_evaluation=True)
         else:
@@ -133,10 +164,11 @@ def generate_individual_plots_from_files(file_paths, column_name, title, is_eval
 
         if is_evaluation:
             if smoothing:
+
                 values_eval[idx] = smooth_values(column)
             else:
-                values_eval[idx] , std= calculate_moving_average(column)
-
+                col , std= calculate_moving_average(column)
+                values_eval[idx] = col.tolist()
         else:
             if smoothing:
                 values_train[idx] = smooth_values(column)
@@ -145,14 +177,14 @@ def generate_individual_plots_from_files(file_paths, column_name, title, is_eval
 
 
     if is_evaluation:
-        values_eval = make_homogeneous(values_eval) #number of episodes may differ in each experiment
-        #values_eval = np.array(values_eval,dtype=float)
+        mins = []
+        for value in values_eval:
+            mins.append(len(value))
+        minimum = np.min(mins)
+        values_eval = [sublist[:minimum] for sublist in values_eval]
         mean_eval = np.mean(values_eval,axis=0)
         std_eval = np.std(values_eval, axis=0)
         episodes = list(range(1, len(mean_eval) + 1))
-        plt.plot(episodes, mean_eval, label=f"{experiment_name} ($\mu$)", color="black", linestyle="dashed")
-        plt.fill_between(episodes, mean_eval - std_eval, mean_eval + std_eval, color='gray', alpha=0.2, label=f"STD ($\sigma$)")
-
         if column_name == "total_reward":
             eval_means_for_experiment_reward[experiment_name] = mean_eval
         elif column_name == "sim_duration":
@@ -165,7 +197,12 @@ def generate_individual_plots_from_files(file_paths, column_name, title, is_eval
             eval_means_for_experiment_length[experiment_name] = mean_eval
 
     else:
-        values_train = make_homogeneous(values_train)
+        mins = []
+        for value in values_train:
+            mins.append(len(value))
+        if len(mins) > 1:
+            minimum = np.min(mins)
+            values_train = [sublist[:minimum] for sublist in values_eval]
         mean_train = np.mean(values_train, axis=0)
         std_train = np.std(values_train, axis=0)
         episodes = list(range(1, len(mean_train) + 1))
@@ -190,17 +227,16 @@ def generate_individual_plots_from_files(file_paths, column_name, title, is_eval
     #plt.suptitle(experiment_name)
     #plt.title(f'Episode vs. {format_column(column_name)} ({plot_type})')
 
-    plt.tight_layout()
 
     if is_evaluation:
         plot_type = 'Evaluation'
     else:
         plot_type = 'Training'
-    figure = plt.gcf()
-    figure.set_size_inches(8, 5)
-    plt.legend(ncol=len(file_paths)+2, loc='upper center')  # 9 means top center
-    plt.savefig(os.path.join(output, f'{experiment_name}_{idx}_{plot_type}_{format_column(column_name)}.png'), dpi=400)
-    plt.savefig(os.path.join(output_svg, f'{experiment_name}_{idx}_{plot_type}_{format_column(column_name)}.svg'), dpi=400,transparent=True, format="svg")
+    plt.tight_layout()
+    handles, labels = plt.gca().get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    plt.legend(by_label.values(), by_label.keys(),ncol=1, bbox_to_anchor=(1.01, 0.8),loc='upper left')
+    plt.savefig(os.path.join(output, f'{experiment_name}_{idx}_{column_name}.png'), dpi=400)
     plt.close()
 
 def generate_plots_vs_custom(idx, csv_path, column_x, column_y, is_evaluation=False):
@@ -213,14 +249,17 @@ def generate_plots_vs_custom(idx, csv_path, column_x, column_y, is_evaluation=Fa
 
         plt.figure()
         figure = plt.gcf()
-        figure.set_size_inches(8, 5)
+        figure.set_size_inches(4,2)
         plt.scatter(df[column_x],df[column_y], label=f"{experiment_name}", s=10, alpha=0.7)
         p = calculate_trendline(df[column_x],df[column_y])
         plt.plot(df[column_x], p(df[column_x]), color="red")
 
         plt.xlabel(format_column(column_x))
         plt.ylabel(format_column(column_y))
-        plt.legend(loc='upper right')
+        handles, labels = plt.gca().get_legend_handles_labels()
+        by_label = dict(zip(labels, handles))
+        plt.legend(by_label.values(), by_label.keys())
+
         #plt.suptitle(experiment_name)
         #plt.title(f'Run #{idx+1}: {plot_type} - {format_column(column_x)} vs. {format_column(column_y)}')
         #plt.legend(handlelength=1.0, handleheight=0.8)
@@ -229,8 +268,7 @@ def generate_plots_vs_custom(idx, csv_path, column_x, column_y, is_evaluation=Fa
         if column_y == "l":
             column_y = "episode_length"
 
-        plt.savefig(os.path.join(output, f'{experiment_name}_{idx}_{plot_type}_{column_x}_vs_{column_y}.png'),dpi=400)
-        plt.savefig(os.path.join(output_svg, f'{experiment_name}_{idx}_{plot_type}_{column_x}_vs_{column_y}.svg'), dpi=400,transparent=True, format="svg")
+        plt.savefig(os.path.join(output, f'{experiment_name}_{idx}_{column_x}_vs_{column_y}.png'),dpi=400)
 
         print("Plot!")
         plt.close()
@@ -250,16 +288,36 @@ if __name__ == "__main__":
          r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\02_RL\Batch_6\Set_1\ID29",]
 
     experiments_3 = [r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\02_RL\Batch_7\Set_1\ID30",
-         r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\02_RL\Batch_7\Set_1\ID33"]
+         r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\02_RL\Batch_7\Set_1\ID28"]
 
     experiments_4 = [r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\02_RL\Batch_7\Set_2\ID31",
-         r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\02_RL\Batch_7\Set_2\ID33"]
+         r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\02_RL\Batch_7\Set_2\ID28"]
     experiments_5 = [r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\02_RL\Batch_7\Set_3\ID32",
-         r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\02_RL\Batch_7\Set_3\ID33"]
+         r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\02_RL\Batch_7\Set_3\ID28"]
 
-    experiments_list = [experiments_1,experiments_2,experiments_3,experiments_4,experiments_5]
+    experiments_6 = [r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\02_RL\Batch_8\ID33",
+                     r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\02_RL\Batch_8\ID34"]
 
-    colors = ["red", "blue", "green", "black", "orange", "pink"]
+    experiments_7 = [r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\04_HYBRID\ID39",
+                     r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\04_HYBRID\ID40",
+                     r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\04_HYBRID\ID41"]
+
+    experiments_8 = [r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\04_HYBRID\ID42",
+                     r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\04_HYBRID\ID43",
+                     r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\04_HYBRID\ID44",
+                     r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\04_HYBRID\ID45"]
+
+    experiments_9 = [r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\04_HYBRID\ID46",
+                     r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\04_HYBRID\ID47",
+                     r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\04_HYBRID\ID48",
+                     r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\04_HYBRID\ID49"]
+
+
+    experiments_list = [experiments_1]
+    #,experiments_2,experiments_3,experiments_4,experiments_5, experiments_7,experiments_8,experiments_9]
+
+    experiments_list_ = [experiments_6]
+    colors = ["blue", "red", "green", "black", "orange", "pink"]
     for experiments in experiments_list:
         means_all = []
         ids_list = []
@@ -289,9 +347,30 @@ if __name__ == "__main__":
             loc_training_files = []
             process_directory(path_to_experiment, loc_evaluation_files, loc_training_files)
             ids_list = []
+            exp_id = get_experiment_id(path_to_experiment)
+            if exp_id == "ID16" or exp_id == "ID17" or exp_id == "ID19":
+                agent = "SAC"
+            elif exp_id == "ID35":
+                agent = "FIFO"
+            elif exp_id == "ID36":
+                agent = "SPT"
+            elif exp_id == "ID37":
+                agent = "EDD"
+            elif exp_id == "ID38":
+                agent = "SCT"
+            elif exp_id == "ID42" or exp_id == "ID46":
+                agent = "PPO & FIFO"
+            elif exp_id == "ID43" or exp_id == "ID47":
+                agent = "PPO & SPT"
+            elif exp_id == "ID44" or exp_id == "ID48":
+                agent = "PPO & EDD"
+            elif exp_id == "ID45" or exp_id == "ID49":
+                agent = "PPO & SCT"
+            else:
+                agent = "PPO"
 
             for i in range(len(columns_to_plot)):
-                generate_individual_plots_from_files(loc_evaluation_files, columns_to_plot[i], (f'{format_column(columns_to_plot[i])} vs. Episodes'), is_evaluation=True)
+                generate_individual_plots_from_files(agent,loc_evaluation_files, columns_to_plot[i], (f'{format_column(columns_to_plot[i])} vs. Episodes'), path_to_experiment, is_evaluation=True)
                 #generate_individual_plots_from_files(loc_training_files, columns_to_plot[i], (f'{format_column(columns_to_plot[i])} vs. Episodes'), is_evaluation=False)
 
         eval_list = [eval_means_for_experiment_reward,
@@ -311,18 +390,69 @@ if __name__ == "__main__":
             for i in range(len(element)):
                 experiment_name = ids_list_nums[i]
                 name = f"ID{experiment_name}"
+                exp_id = name
+                list_means = [[] for i in range(len(element))]
+
+                if exp_id == "ID16" or exp_id == "ID17" or exp_id == "ID19":
+                    agent = "SAC"
+                elif exp_id == "ID35":
+                    agent = "FIFO"
+                elif exp_id == "ID36":
+                    agent = "SPT"
+                elif exp_id == "ID37":
+                    agent = "EDD"
+                elif exp_id == "ID38":
+                    agent = "SCT"
+                elif exp_id == "ID42" or exp_id == "ID46":
+                    agent = "PPO & FIFO"
+                elif exp_id == "ID43" or exp_id == "ID47":
+                    agent = "PPO & SPT"
+                elif exp_id == "ID44" or exp_id == "ID48":
+                    agent = "PPO & EDD"
+                elif exp_id == "ID45" or exp_id == "ID49":
+                    agent = "PPO & SCT"
+                else:
+                    agent = "PPO"
+                values = list(element[name])
                 episodes = list(range(1, len(element[name]) + 1))
-                plt.plot(episodes, element[name],label=f"{name} ($\mu$)",color=colors[i])
+                #data = pd.DataFrame(values)
+                #std = data.rolling(window=window_size, min_periods=1).std()
+                std = np.std(element[name])
+                plt.plot(episodes, element[name],label=f"{agent} $\mu$ ({exp_id})",color=colors[i])
+                plt.fill_between(episodes, element[name]-std,element[name]+std,color=colors[i],alpha=0.2)
+
+                last_y_values = element[name][int(len(element[name]) * 0.9):int(len(element[name]) * 1)]
+                min = np.min(last_y_values)
+                max = np.max(last_y_values)
+
+                if plot_best and order[y] != "Return":
+                    plt.plot(episodes, [min] * len(element[name]), color=colors[i], linestyle="dashed", linewidth=1.5,alpha=0.7,label=f"Best Solution {agent} ({exp_id})")
+
                 print(experiment_name)
+
+
+            column_name = order[y]
+            if column_name == "Makespan":
+                plt.gca().set_ylim(bottom=25)
+                plt.plot(episodes, [26.56] * len(element[name]), label=f'Best Solution Kopanos', color="black",
+                         linestyle="dashed", linewidth=1.5)
+            elif column_name == "Operating & Changeover Costs":
+                plt.gca().set_ylim(bottom=60)
+                plt.plot(episodes, [62.91] * len(element[name]), label=f'Best Solution Kopanos', color="black",
+                         linestyle="dashed", linewidth=1.5)
+            elif column_name == "Total Weighted Lateness":
+                plt.gca().set_ylim(bottom=-10)
+                plt.plot(episodes, [19.09] * len(element[name]), label=f'Best Solution Kopanos', color="black",
+                         linestyle="dashed", linewidth=1.5)
+
             print("Super Plot!")
             plt.xlabel("Episodes")
             plt.ylabel(order[y])
-            figure = plt.gcf()
-            plt.tight_layout()
-            plt.legend(ncol=len(element), loc='upper right')  # 9 means top center
-            figure.set_size_inches(11, 5)
-
-            plt.savefig(os.path.join(output, f'Mean_Evaluation_{experiment_name}_{order[y]}.png'), dpi=400)
-            plt.savefig(os.path.join(output_svg, f'Mean_Evaluation_{experiment_name}_{order[y]}.svg'), dpi=400,
-                        transparent=True, format="svg")
+            fig = plt.gcf()
+            fig.set_size_inches(5,4)
+            fig.tight_layout()
+            handles, labels = plt.gca().get_legend_handles_labels()
+            by_label = dict(zip(labels, handles))
+            plt.legend(by_label.values(), by_label.keys(), ncol=1, bbox_to_anchor=(1.01, 0.8), loc='upper left')
+            plt.savefig(os.path.join(output, f'Mean_{ids_list_nums[0]}-{ids_list_nums[-1]}_{column_name}.png'), dpi=400)
             plt.close()

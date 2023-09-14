@@ -702,7 +702,7 @@ class flexible_flow_shop(gym.Env):
         if not self.legal_operations[action] and self.legal_operations.any() and not self.is_copy:
             self.episode_length += 1
 
-            if self.finished_orders.all() or np.round(self.completion_score, 5) == 1.0:
+            if self.completion_score > 0.999:
                 print("------------------------------------------------------")
                 print(
                     "Episode terminated, good job! Completion score: {}%".format(
@@ -746,8 +746,8 @@ class flexible_flow_shop(gym.Env):
                 "schedule": self.schedule,
                 "total_reward": self.total_reward,
             }
-            print("AGENT TOOK ILLEGAL ACTION!")
-            self.reward = -1000
+            #print("AGENT TOOK ILLEGAL ACTION!")
+            #self.reward = -1000
 
         else:
             self.timestep = get_timestep(self, action)
@@ -795,7 +795,7 @@ class flexible_flow_shop(gym.Env):
                 "total_reward": self.total_reward,
             }
 
-            if self.finished_orders.all() or np.round(self.completion_score, 5) == 1.0:
+            if self.completion_score > 0.999:
                 print("------------------------------------------------------")
                 print("------------------------------------------------------")
                 print(
