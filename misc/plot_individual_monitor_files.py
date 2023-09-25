@@ -7,6 +7,11 @@ import os
 import re
 from scipy import stats
 
+from matplotlib import colors as mcolors
+colors_css = dict(mcolors.BASE_COLORS, **mcolors.CSS4_COLORS)
+
+plot_heuristics = True
+colors_heuristics = ["mediumvioletred", "indianred", "olivedrab", "teal","springgreen","deepskyblue"]
 several = True
 plot_best = True
 def get_experiment_id(csv_path):
@@ -26,7 +31,7 @@ os.makedirs(output, exist_ok=True)
 os.makedirs(output_svg, exist_ok=True)
 plt.style.use(['science','no-latex','grid'])
 # Define your base source directory
-window_size = 50
+window_size = 12
 smoothing = False
 output_directory = "plots"
 
@@ -92,20 +97,64 @@ def generate_single_plot(csv_path, column_name, label,idx, is_evaluation):
 
 
     if column_name == "sim_duration":
-        plt.gca().set_ylim(bottom=25)
-        plt.plot(episodes, [26.56] * len(mean_eval), label=f'Best Solution Kopanos', color="black",
-                 linestyle="dashed", linewidth=1.5)
-    elif column_name == "oc_costs":
-        plt.gca().set_ylim(bottom=60)
-        plt.plot(episodes, [62.91] * len(mean_eval), label=f'Best Solution Kopanos', color="black",
-                 linestyle="dashed", linewidth=1.5)
-    elif column_name == "weighted_lateness":
-        plt.gca().set_ylim(bottom=0)
-        plt.plot(episodes, [19.09] * len(mean_eval), label=f'Best Solution Kopanos', color="black",
-                 linestyle="dashed", linewidth=1.5)
+        #plt.gca().set_ylim(bottom=25)
+        if plot_heuristics:
+            plt.plot(episodes, [35.74] *len(episodes), label="Best Solution PPO (ID23)", color=colors_css[colors_heuristics[4]], linestyle="dashed", linewidth=1.2)
+            plt.plot(episodes, [42.18] *len(episodes), label="Best Solution SAC (ID16)", color=colors_css[colors_heuristics[5]], linestyle="dashed", linewidth=1.2)
+            plt.plot(episodes, [44.01] *len(episodes), label="Best Solution FIFO", color=colors_css[colors_heuristics[0]], linestyle="dashed", linewidth=1.2)
+            plt.plot(episodes, [34.25] *len(episodes), label="Best Solution SPT", color=colors_css[colors_heuristics[1]], linestyle="dashed", linewidth=1.2)
+            plt.plot(episodes, [33.55] *len(episodes), label="Best Solution EDD", color=colors_css[colors_heuristics[2]], linestyle="dashed", linewidth=1.2)
+            plt.plot(episodes, [33.07] *len(episodes), label="Best Solution SCT", color=colors_css[colors_heuristics[3]], linestyle="dashed", linewidth=1.2)
+            plt.plot(episodes, [26.56]*len(episodes), label=f'Best Solution MIP (Kopanos)', color="black", linestyle="dashed",linewidth=1.2)
+            plt.plot(episodes, [25.01] * len(episodes), label=f'Best Solution CP (Bleidorn)$^1$', color=colors_css["lightseagreen"],
+                     linestyle="dashed", linewidth=1.2)
+        else:
+            plt.plot(episodes, [26.56] * len(mean_eval), label=f'Best Solution MIP (Kopanos)', color="black",
+                     linestyle="dashed", linewidth=1.5)
+            plt.plot(episodes, [25.01] * len(mean_eval), label=f'Best Solution CP (Bleidorn)$^1$',
+                     color=colors_css["lightseagreen"],
+                     linestyle="dashed", linewidth=1.2)
 
-    min = np.min(mean_eval)
-    max = np.max(mean_eval)
+    elif column_name == "oc_costs":
+        #plt.gca().set_ylim(bottom=60)
+        if plot_heuristics:
+            plt.plot(episodes, [82.01] *len(episodes), label="Best Solution PPO (ID23)", color=colors_css[colors_heuristics[4]], linestyle="dashed", linewidth=1.2)
+            plt.plot(episodes, [88.89] *len(episodes), label="Best Solution SAC (ID19)", color=colors_css[colors_heuristics[5]], linestyle="dashed", linewidth=1.2)
+
+            plt.plot(episodes, [87.06] *len(episodes), label="Best Solution FIFO", color=colors_css[colors_heuristics[0]],
+                     linestyle="dashed", linewidth=1.2)
+            plt.plot(episodes, [76.56] *len(episodes), label="Best Solution SPT", color=colors_css[colors_heuristics[1]],
+                     linestyle="dashed", linewidth=1.2)
+            plt.plot(episodes, [74.77] *len(episodes), label="Best Solution EDD", color=colors_css[colors_heuristics[2]],
+                     linestyle="dashed", linewidth=1.2)
+            plt.plot(episodes, [69.89] *len(episodes), label="Best Solution SCT", color=colors_css[colors_heuristics[3]],
+                     linestyle="dashed", linewidth=1.2)
+            plt.plot(episodes, [62.91] *len(episodes), label=f'Best Solution MIP (Kopanos)', color="black",
+                     linestyle="dashed", linewidth=1.2)
+        else:
+            plt.plot(episodes, [62.91] * len(mean_eval), label=f'Best Solution MIP (Kopanos)', color="black",
+                     linestyle="dashed", linewidth=1.5)
+    elif column_name == "weighted_lateness":
+        #plt.gca().set_ylim(bottom=0)
+        if plot_heuristics:
+            plt.plot(episodes, [762.32] *len(episodes), label="Best Solution PPO (ID32)", color=colors_css[colors_heuristics[4]], linestyle="dashed", linewidth=1.2)
+            plt.plot(episodes, [1186.81] *len(episodes), label="Best Solution SAC (ID19)", color=colors_css[colors_heuristics[5]], linestyle="dashed", linewidth=1.2)
+
+            plt.plot(episodes, [1180.45] *len(episodes), label="Best Solution FIFO", color=colors_css[colors_heuristics[0]], linestyle="dashed",
+                     linewidth=1.2)
+            plt.plot(episodes, [627.47] *len(episodes), label="Best Solution SPT", color=colors_css[colors_heuristics[1]], linestyle="dashed", linewidth=1.2)
+            plt.plot(episodes, [230.75] *len(episodes), label="Best Solution EDD", color=colors_css[colors_heuristics[2]], linestyle="dashed", linewidth=1.2)
+            plt.plot(episodes, [512.87] *len(episodes), label="Best Solution SCT", color=colors_css[colors_heuristics[3]], linestyle="dashed", linewidth=1.2)
+
+            plt.plot(episodes, [19.09]*len(episodes), label=f'Best Solution MIP (Kopanos)', color="black", linestyle="dashed",linewidth=1.2)
+        else:
+            plt.plot(episodes, [19.09] * len(mean_eval), label=f'Best Solution MIP (Kopanos)', color="black",
+                     linestyle="dashed", linewidth=1.5)
+
+    last_y_values = mean_eval[int(len(mean_eval) * 0.9):int(len(mean_eval) * 1)]
+    min = np.min(last_y_values)
+    max = np.max(last_y_values)
+
     if plot_best and column_name != "total_reward":
         plt.plot(episodes, [min] * len(mean_eval), color=colors[idx], linestyle="dashed", linewidth=1.5, alpha=0.7,label=f"Best Solution {agent} ({exp_id})")
 
@@ -153,8 +202,8 @@ def generate_individual_plots_from_files(agent,file_paths, column_name, title, p
             label = f"{agent} ({experiment_name})"
 
         figure = plt.gcf()
-        figure.set_size_inches(6, 3)
-
+        figure.set_size_inches(6, 4)
+        lens = []
         column = generate_single_plot(file_path, column_name,label,idx, is_evaluation=is_evaluation)
 
         if is_evaluation:
@@ -249,7 +298,7 @@ def generate_plots_vs_custom(idx, csv_path, column_x, column_y, is_evaluation=Fa
 
         plt.figure()
         figure = plt.gcf()
-        figure.set_size_inches(4,2)
+        figure.set_size_inches(2,3)
         plt.scatter(df[column_x],df[column_y], label=f"{experiment_name}", s=10, alpha=0.7)
         p = calculate_trendline(df[column_x],df[column_y])
         plt.plot(df[column_x], p(df[column_x]), color="red")
@@ -313,11 +362,10 @@ if __name__ == "__main__":
                      r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\04_HYBRID\ID49"]
 
 
-    experiments_list = [experiments_1]
-    #,experiments_2,experiments_3,experiments_4,experiments_5, experiments_7,experiments_8,experiments_9]
+    experiments_list_ = [experiments_1,experiments_2,experiments_3,experiments_4,experiments_5, experiments_7,experiments_8,experiments_9]
 
-    experiments_list_ = [experiments_6]
-    colors = ["blue", "red", "green", "black", "orange", "pink"]
+    experiments_list = [experiments_9]
+    colors = ["blue", "red", "green", "brown", "orange", "pink"]
     for experiments in experiments_list:
         means_all = []
         ids_list = []
@@ -358,6 +406,8 @@ if __name__ == "__main__":
                 agent = "EDD"
             elif exp_id == "ID38":
                 agent = "SCT"
+            elif exp_id == "ID39" or exp_id == "ID40" or exp_id == "ID41":
+                agent = "PPO & KOPANOS"
             elif exp_id == "ID42" or exp_id == "ID46":
                 agent = "PPO & FIFO"
             elif exp_id == "ID43" or exp_id == "ID47":
@@ -385,14 +435,14 @@ if __name__ == "__main__":
 
 
         order  = ["Return", "Makespan", "Operating & Changeover Costs","Total Weighted Lateness"]
-
+        lens = []
         for y, element in enumerate(eval_list):
             for i in range(len(element)):
                 experiment_name = ids_list_nums[i]
                 name = f"ID{experiment_name}"
                 exp_id = name
                 list_means = [[] for i in range(len(element))]
-
+                y_values = element[name]
                 if exp_id == "ID16" or exp_id == "ID17" or exp_id == "ID19":
                     agent = "SAC"
                 elif exp_id == "ID35":
@@ -403,6 +453,8 @@ if __name__ == "__main__":
                     agent = "EDD"
                 elif exp_id == "ID38":
                     agent = "SCT"
+                elif exp_id == "ID39" or exp_id == "ID40" or exp_id == "ID41":
+                    agent = "PPO & KOPANOS"
                 elif exp_id == "ID42" or exp_id == "ID46":
                     agent = "PPO & FIFO"
                 elif exp_id == "ID43" or exp_id == "ID47":
@@ -430,20 +482,95 @@ if __name__ == "__main__":
 
                 print(experiment_name)
 
-
+                lens.append(len(y_values))
             column_name = order[y]
+            x_ax = range(1, np.max(lens) + 1)
+
             if column_name == "Makespan":
-                plt.gca().set_ylim(bottom=25)
-                plt.plot(episodes, [26.56] * len(element[name]), label=f'Best Solution Kopanos', color="black",
+                #plt.gca().set_ylim(bottom=20)
+
+                if plot_heuristics:
+                    plt.plot(x_ax, [35.74] * np.max(lens), label=f'Best Solution PPO (ID23)',
+                             color=colors_css["springgreen"],
+                             linestyle="dashed", linewidth=1.2)
+                    plt.plot(x_ax, [42.18] * np.max(lens), label=f'Best Solution SAC (ID16)',
+                             color=colors_css["deepskyblue"],
+                             linestyle="dashed", linewidth=1.2)
+                    plt.plot(x_ax, [44.01] * np.max(lens), label="Best Solution FIFO",
+                             color=colors_css[colors_heuristics[0]], linestyle="dashed", linewidth=1.2)
+                    plt.plot(x_ax, [34.25] * np.max(lens), label="Best Solution SPT",
+                             color=colors_css[colors_heuristics[1]], linestyle="dashed", linewidth=1.2)
+                    plt.plot(x_ax, [33.55] * np.max(lens), label="Best Solution EDD",
+                             color=colors_css[colors_heuristics[2]], linestyle="dashed", linewidth=1.2)
+                    plt.plot(x_ax, [33.07] * np.max(lens), label="Best Solution SCT",
+                             color=colors_css[colors_heuristics[3]], linestyle="dashed", linewidth=1.2)
+                    plt.plot(x_ax, [26.56] * np.max(lens), label=f'Best Solution MIP (Kopanos)', color="black",
+                             linestyle="dashed", linewidth=1.2)
+                    plt.plot(x_ax, [25.01] * np.max(lens), label=f'Best Solution CP (Bleidorn)$^1$',
+                             color=colors_css["lightseagreen"],
+                             linestyle="dashed", linewidth=1.2)
+                else:
+                    plt.plot(episodes, [25.01] * len(y_values), label=f'Best Solution CP (Bleidorn)$^1$',
+                             color=colors_css["lightseagreen"],
+                             linestyle="dashed", linewidth=1.2)
+                    plt.plot(episodes, [26.56] * len(y_values), label=f'Best Solution MIP (Kopanos)', color="black",
+                             linestyle="dashed",
+                             linewidth=1.2)
+
+
+                plt.plot(episodes, [26.56] * len(element[name]), label=f'Best Solution MIP (Kopanos)', color="black",
+                         linestyle="dashed", linewidth=1.5)
+                plt.plot(episodes, [25.01] * len(element[name]), label=f'Best Solution CP (Bleidorn)$^1$', color=colors_css["lightseagreen"],
                          linestyle="dashed", linewidth=1.5)
             elif column_name == "Operating & Changeover Costs":
-                plt.gca().set_ylim(bottom=60)
-                plt.plot(episodes, [62.91] * len(element[name]), label=f'Best Solution Kopanos', color="black",
-                         linestyle="dashed", linewidth=1.5)
+                #plt.gca().set_ylim(bottom=60)
+                if plot_heuristics:
+                    plt.plot(x_ax, [82.01] * np.max(lens), label=f'Best Solution PPO (ID23)',
+                             color=colors_css["springgreen"],
+                             linestyle="dashed", linewidth=1.2)
+                    plt.plot(x_ax, [88.89] * np.max(lens), label=f'Best Solution SAC (ID19)',
+                             color=colors_css["deepskyblue"],
+                             linestyle="dashed", linewidth=1.2)
+                    plt.plot(x_ax, [87.06] * np.max(lens), label="Best Solution FIFO",
+                             color=colors_css[colors_heuristics[0]], linestyle="dashed", linewidth=1.2)
+                    plt.plot(x_ax, [76.56] * np.max(lens), label="Best Solution SPT",
+                             color=colors_css[colors_heuristics[1]], linestyle="dashed", linewidth=1.2)
+                    plt.plot(x_ax, [74.77] * np.max(lens), label="Best Solution EDD",
+                             color=colors_css[colors_heuristics[2]], linestyle="dashed", linewidth=1.2)
+                    plt.plot(x_ax, [69.89] * np.max(lens), label="Best Solution SCT",
+                             color=colors_css[colors_heuristics[3]], linestyle="dashed", linewidth=1.2)
+                    plt.plot(x_ax, [62.91] * np.max(lens), label=f'Best Solution MIP (Kopanos)', color="black",
+                             linestyle="dashed", linewidth=1.2)
+
+                else:
+                    plt.plot(episodes, [62.91] * len(element[name]), label=f'Best Solution MIP (Kopanos)', color="black",
+                             linestyle="dashed", linewidth=1.5)
             elif column_name == "Total Weighted Lateness":
-                plt.gca().set_ylim(bottom=-10)
-                plt.plot(episodes, [19.09] * len(element[name]), label=f'Best Solution Kopanos', color="black",
-                         linestyle="dashed", linewidth=1.5)
+                #plt.gca().set_ylim(bottom=-10)
+
+                if plot_heuristics:
+                    plt.plot(x_ax, [762.32] * np.max(lens), label=f'Best Solution PPO (ID32)',
+                             color=colors_css["springgreen"],
+                             linestyle="dashed", linewidth=1.2)
+                    plt.plot(x_ax, [1186.81] * np.max(lens), label=f'Best Solution SAC (ID19)',
+                             color=colors_css["deepskyblue"],
+                             linestyle="dashed", linewidth=1.2)
+
+                    plt.plot(x_ax, [1180.45] * np.max(lens), label="Best Solution FIFO",
+                             color=colors_css[colors_heuristics[0]], linestyle="dashed",
+                             linewidth=1.2)
+                    plt.plot(x_ax, [627.47] * np.max(lens), label="Best Solution SPT",
+                             color=colors_css[colors_heuristics[1]], linestyle="dashed", linewidth=1.2)
+                    plt.plot(x_ax, [230.75] * np.max(lens), label="Best Solution EDD",
+                             color=colors_css[colors_heuristics[2]], linestyle="dashed", linewidth=1.2)
+                    plt.plot(x_ax, [512.87] * np.max(lens), label="Best Solution SCT",
+                             color=colors_css[colors_heuristics[3]], linestyle="dashed", linewidth=1.2)
+
+                    plt.plot(x_ax, [19.09] * np.max(lens), label=f'Best Solution MIP (Kopanos)', color="black",
+                             linestyle="dashed", linewidth=1.2)
+                else:
+                    plt.plot(episodes, [19.09] * len(element[name]), label=f'Best Solution MIP (Kopanos)', color="black",
+                             linestyle="dashed", linewidth=1.5)
 
             print("Super Plot!")
             plt.xlabel("Episodes")

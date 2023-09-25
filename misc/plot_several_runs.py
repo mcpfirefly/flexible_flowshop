@@ -7,6 +7,10 @@ from scipy import stats
 
 plt.style.use(['science','no-latex','grid'])
 
+from matplotlib import colors as mcolors
+colors_css = dict(mcolors.BASE_COLORS, **mcolors.CSS4_COLORS)
+colors = ["blue","red","green","brown","orange","pink"]
+
 
 
 # Define your base source directory
@@ -15,8 +19,8 @@ smoothing = False
 moving_avg = True
 multiple = False
 plot_best = True
-plot_heuristics = False
-colors_heuristics = ["purple", "orange", "green", "gray"]
+plot_heuristics = True
+colors_heuristics = ["mediumvioletred", "indianred", "olivedrab", "teal"]
 if smoothing:
     smoothing_factor = 0.99
     window_size = None
@@ -128,7 +132,7 @@ def generate_plots_vs_custom_grouped(batch_id, exp_id,csv_path, column_x, column
 
     ax.set_xlabel('Return')
     ax.set_ylabel(format_column(column_y))
-    ax.set_aspect("auto")
+    #ax.set_aspect("auto")
     #ax.legend(handlelength=1.0, handleheight=0.8)
 
 
@@ -171,8 +175,8 @@ def generate_single_plot(files, column_name, is_evaluation):
     y_values_array = []
     x_values_array = []
     exp_id_array = []
-    colors = ["red","blue","green","black","orange","pink"]
-    fig, axs = plt.subplots(ncols=len(files))
+    fig, axs = plt.subplots(len(files))
+    axs = axs.flat
     for i in range(len(files)):
         csv_path = files[i]
         exp_id = get_experiment_id(csv_path)
@@ -181,10 +185,8 @@ def generate_single_plot(files, column_name, is_evaluation):
         axs[i].legend()
     plot_type = 'Evaluation' if is_evaluation else 'Training'
     fig = plt.gcf()
-    fig.set_size_inches(6,2)
+    fig.set_size_inches(6,4)
     fig.tight_layout()
-    fig.savefig(os.path.join(output,f'G_{exp_id}_Return_vs_{column_name}.png'),dpi=400)
-
     fig.savefig(os.path.join(output,f'G_{exp_id}_Return_vs_{column_name}.png'),dpi=400)
     plt.close()
     lens = []
@@ -252,7 +254,7 @@ def generate_single_plot(files, column_name, is_evaluation):
         min = np.min(last_y_values)
         max = np.max(last_y_values)
         if plot_best and column_name != "total_reward" and column_name != "completion_score":
-            plt.plot(episodes, [min] * len(y_values), color=colors[i], linestyle="dashed", linewidth=1.2, alpha = 0.7,label=f"Best Solution {exp_id}")
+            plt.plot(episodes, [min] * len(y_values), color=colors[i], linestyle="dashed", linewidth=1.2, alpha = 0.7,label=f"Best Solution {agent} ({exp_id})")
 
         lens.append(len(y_values))
 
@@ -260,39 +262,44 @@ def generate_single_plot(files, column_name, is_evaluation):
     if column_name == "sim_duration":
         plt.gca().set_ylim(bottom=20)
         if plot_heuristics:
-            plt.plot(x_ax, [44.01] *np.max(lens), label="Best Solution FIFO", color=colors_heuristics[0], linestyle="dashed", linewidth=1.2)
-            plt.plot(x_ax, [34.25] *np.max(lens), label="Best Solution SPT", color=colors_heuristics[1], linestyle="dashed", linewidth=1.2)
-            plt.plot(x_ax, [33.55] *np.max(lens), label="Best Solution EDD", color=colors_heuristics[2], linestyle="dashed", linewidth=1.2)
-            plt.plot(x_ax, [33.07] *np.max(lens), label="Best Solution SCT", color=colors_heuristics[3], linestyle="dashed", linewidth=1.2)
-            plt.plot(x_ax, [26.56]*np.max(lens), label=f'Best Solution Kopanos', color="black", linestyle="dashed",linewidth=1.2)
+            plt.plot(x_ax, [44.01] *np.max(lens), label="Best Solution FIFO", color=colors_css[colors_heuristics[0]], linestyle="dashed", linewidth=1.2)
+            plt.plot(x_ax, [34.25] *np.max(lens), label="Best Solution SPT", color=colors_css[colors_heuristics[1]], linestyle="dashed", linewidth=1.2)
+            plt.plot(x_ax, [33.55] *np.max(lens), label="Best Solution EDD", color=colors_css[colors_heuristics[2]], linestyle="dashed", linewidth=1.2)
+            plt.plot(x_ax, [33.07] *np.max(lens), label="Best Solution SCT", color=colors_css[colors_heuristics[3]], linestyle="dashed", linewidth=1.2)
+            plt.plot(x_ax, [26.56]*np.max(lens), label=f'Best Solution MIP (Kopanos)', color="black", linestyle="dashed",linewidth=1.2)
+            plt.plot(x_ax, [25.01] * np.max(lens), label=f'Best Solution CP (Bleidorn)$^1$', color=colors_css["lightseagreen"],
+                     linestyle="dashed", linewidth=1.2)
         else:
-            plt.plot(episodes, [26.56] * len(y_values), label=f'Best Solution Kopanos', color="black", linestyle="dashed",
+
+            plt.plot(episodes, [25.01] * len(y_values), label=f'Best Solution CP (Bleidorn)$^1$', color=colors_css["lightseagreen"],
+                     linestyle="dashed", linewidth=1.2)
+            plt.plot(episodes, [26.56] * len(y_values), label=f'Best Solution MIP (Kopanos)', color="black", linestyle="dashed",
                      linewidth=1.2)
 
     elif column_name == "oc_costs":
         plt.gca().set_ylim(bottom=60)
         if plot_heuristics:
-            plt.plot(x_ax, [87.06] *np.max(lens), label="Best Solution FIFO", color=colors_heuristics[0], linestyle="dashed", linewidth=1.2)
-            plt.plot(x_ax, [76.56] *np.max(lens), label="Best Solution SPT", color=colors_heuristics[1], linestyle="dashed", linewidth=1.2)
-            plt.plot(x_ax, [74.77] *np.max(lens), label="Best Solution EDD", color=colors_heuristics[2], linestyle="dashed", linewidth=1.2)
-            plt.plot(x_ax, [69.89] *np.max(lens), label="Best Solution SCT", color=colors_heuristics[3], linestyle="dashed", linewidth=1.2)
-            plt.plot(x_ax, [62.91]*np.max(lens), label=f'Best Solution Kopanos', color="black", linestyle="dashed",linewidth=1.2)
+            plt.plot(x_ax, [87.06] *np.max(lens), label="Best Solution FIFO", color=colors_css[colors_heuristics[0]], linestyle="dashed", linewidth=1.2)
+            plt.plot(x_ax, [76.56] *np.max(lens), label="Best Solution SPT", color=colors_css[colors_heuristics[1]], linestyle="dashed", linewidth=1.2)
+            plt.plot(x_ax, [74.77] *np.max(lens), label="Best Solution EDD", color=colors_css[colors_heuristics[2]], linestyle="dashed", linewidth=1.2)
+            plt.plot(x_ax, [69.89] *np.max(lens), label="Best Solution SCT", color=colors_css[colors_heuristics[3]], linestyle="dashed", linewidth=1.2)
+            plt.plot(x_ax, [62.91]*np.max(lens), label=f'Best Solution MIP (Kopanos)', color="black", linestyle="dashed",linewidth=1.2)
         else:
-            plt.plot(episodes, [62.91] *  len(y_values), label=f'Best Solution Kopanos', color="black", linestyle="dashed",
+            plt.plot(episodes, [62.91] *  len(y_values), label=f'Best Solution MIP (Kopanos)', color="black", linestyle="dashed",
                      linewidth=1.2)
     elif column_name == "weighted_lateness":
         plt.gca().set_ylim(bottom=-10)
 
         if plot_heuristics:
-            plt.plot(x_ax, [1180.45] * np.max(lens), label="Best Solution FIFO", color=colors_heuristics[0], linestyle="dashed",
+            plt.plot(x_ax, [1180.45] * np.max(lens), label="Best Solution FIFO", color=colors_css[colors_heuristics[0]], linestyle="dashed",
                      linewidth=1.2)
-            plt.plot(x_ax, [627.47] * np.max(lens), label="Best Solution SPT", color=colors_heuristics[1], linestyle="dashed", linewidth=1.2)
-            plt.plot(x_ax, [230.75] * np.max(lens), label="Best Solution EDD", color=colors_heuristics[2], linestyle="dashed", linewidth=1.2)
-            plt.plot(x_ax, [512.87] * np.max(lens), label="Best Solution SCT", color=colors_heuristics[3], linestyle="dashed", linewidth=1.2)
+            plt.plot(x_ax, [627.47] * np.max(lens), label="Best Solution SPT", color=colors_css[colors_heuristics[1]], linestyle="dashed", linewidth=1.2)
+            plt.plot(x_ax, [230.75] * np.max(lens), label="Best Solution EDD", color=colors_css[colors_heuristics[2]], linestyle="dashed", linewidth=1.2)
+            plt.plot(x_ax, [512.87] * np.max(lens), label="Best Solution SCT", color=colors_css[colors_heuristics[3]], linestyle="dashed", linewidth=1.2)
 
-            plt.plot(x_ax, [19.09]*np.max(lens), label=f'Best Solution Kopanos', color="black", linestyle="dashed",linewidth=1.2)
+            plt.plot(x_ax, [19.09]*np.max(lens), label=f'Best Solution MIP (Kopanos)', color="black", linestyle="dashed",linewidth=1.2)
         else:
-            plt.plot(episodes, [19.09] * len(y_values), label=f'Best Solution Kopanos', color="black", linestyle="dashed",linewidth=1.2)
+            plt.plot(episodes, [19.09] * len(y_values), label=f'Best Solution MIP (Kopanos)', color="black", linestyle="dashed",linewidth=1.2)
 
     plt.xlabel('Episodes')
     plt.ylabel(format_column(column_name))
@@ -305,7 +312,7 @@ def generate_single_plot(files, column_name, is_evaluation):
     figure = plt.gcf()
     figure.set_size_inches(5,3)
     plt.tight_layout()
-    legend = plt.legend(bbox_to_anchor=(1.01,0.7), loc='upper left')  # 9 means top center
+    legend = plt.legend(bbox_to_anchor=(1.01,1), loc='upper left')  # 9 means top center
     # Adjust the font size of the legend
     for text in legend.get_texts():
         text.set_fontsize(10)
@@ -316,7 +323,6 @@ def generate_single_plot_grouped(files, column_name, is_evaluation):
     y_values_array = []
     x_values_array = []
     exp_id_array = []
-    colors = ["blue","red","green","black","orange","pink"]
     fig, axs = plt.subplots(len(files))
     for i in range(len(files)):
         csv_path = files[i]
@@ -400,15 +406,16 @@ base_source_directory_ = [r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\Ge
                          r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\02_RL\Comparing_Batch1_2\Set_3_1",
                          r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\02_RL\Comparing_Batch1_2\Set_3_2"]
 
-base_source_directory_ = [r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\02_RL\best_mks",
+base_source_directory = [r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\02_RL\best_mks",
                          r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\02_RL\best_occ",
                          r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\02_RL\best_wl"]
 
 base_source_directory_ = [r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\02_RL\Batch_3\Set_1",
                          r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\02_RL\Batch_3\Set_2"]
 
-base_source_directory = [r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\02_RL\Batch_4\Set_1"]
+base_source_directory_ = [r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\02_RL\Batch_4\Set_1"]
 
+#base_source_directory_ = [r"C:\Users\INOSIM\OneDrive - INOSIM Consulting GmbH\General\Thesis Overviews - MCPF\03_Others\results\02_RL\Set_11"]
 
 loc_evaluation_files_g = [[] for i in range(len(base_source_directory))]
 loc_training_files_g = [[] for i in range(len(base_source_directory))]
@@ -430,7 +437,6 @@ for i, folder in enumerate(base_source_directory):
 
 
 def plot_grouped(files,is_evaluation):
-    colors = ["red", "blue", "green", "black", "orange", "pink"]
     fig, axs = plt.subplots(len(files))
 
     y_values_array = []
